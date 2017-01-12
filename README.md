@@ -79,7 +79,7 @@ The first time you run `dropstack`, it'll ask for your email address in order to
 ## Features
 
 * doesn't require you to install certain applications in order to get started
-* Traffic is only served over secure connections
+* Traffic is only served over secure SSL connections
 * Custom domains and own SSL Certificate support
 * No need to install git or source control
 * No need to setup keys/tokens
