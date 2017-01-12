@@ -18,23 +18,30 @@ Just enter `dropstack` in the folder you want to deploy.
 
 __Docker__
 ```bash
-$ my-app/ ls
+$ my-go-app/ ls
 Dockerfile  server.go
-$ my-app/ dropstack
+$ my-go-app/ dropstack
 ```
 
 __Node.JS__
 ```bash
-$ my-api/ ls
+$ my-nodejs-api/ ls
 package.json  index.js
-$ my-api/ dropstack
+$ my-nodejs-api/ dropstack
 ```
 
 __Static Websites__
 ```bash
-$ my-site/ ls
+$ my-web-site/ ls
 index.html  logo.png
-$ my-site/ dropstack
+$ my-web-site/ dropstack
+```
+
+__Single Page Applications__
+```bash
+$ my-spa-app/ ls
+index.html  bundle.js
+$ my-spa-app/ dropstack
 ```
 
 ## What dropstack is?
