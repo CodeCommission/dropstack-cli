@@ -1,0 +1,15 @@
+#!/usr/bin/env node
+const program = require('commander');
+const manifest = require('../package.json');
+
+program
+  .version(manifest.version)
+  .allowUnknownOption()
+  .command('deploy [folder]', 'Performs a deployment (default)', {isDefault: true})
+  .command('list', 'List deployments')
+  .command('remove [id]', 'Remove a deployment')
+  .command('log [id]', 'StdOut/StdErr Log-Stream of deployment')
+  .command('alias [id] [url]', 'Configures aliases for deployments')
+  .command('certs [cmd]', 'Manages your SSL certificates')
+  .command('env [name]', 'Manages your environment variables')
+  .parse(process.argv);

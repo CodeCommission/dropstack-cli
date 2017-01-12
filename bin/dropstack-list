@@ -1,0 +1,22 @@
+#!/usr/bin/env node
+const BASE_URL = `https://api.dropstack.run`;
+
+const path = require('path');
+const fs = require('fs');
+const program = require('commander');
+const fetch = require('node-fetch');
+const stackSettings = require('../lib/stack-settings')();
+
+if(!fs.existsSync(process.argv[2])) process.argv.splice(2, 0, process.cwd());
+
+program
+  .action(list)
+  .parse(process.argv);
+
+function list(){
+  stackSettings.load()
+  .then(settings => fetch(`${BASE_URL}/stacks`, { headers: { Authorization: `Bearer ${settings.token}`, } }).then(response => response.json()))
+  .then(data => (data || []).map(x => `${x.serviceId} | ${x.serviceName}`))
+  .then(console.log)
+  .catch(console.error);
+}

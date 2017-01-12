@@ -1,0 +1,178 @@
+#!/usr/bin/env node
+const BASE_URL = `https://api.dropstack.run`;
+
+const fs = require('fs');
+const path = require('path');
+const program = require('commander');
+const prompt = require('prompt');
+const tar = require('tar');
+const fstream = require('fstream');
+const os = require('os');
+const fetch = require('node-fetch');
+const ProgressBar = require('progress');
+const FormData = require('form-data');
+const stackSettings = require('../lib/stack-settings')();
+
+prompt.message = '';
+prompt.delimiter = ':';
+
+if(!fs.existsSync(process.argv[2])) process.argv.splice(2, 0, process.cwd());
+
+process.on('SIGINT', () => process.exit(0));
+
+program
+  .arguments('[folder]')
+  .option('-u, --username <username>', 'User email address')
+  .option('-p, --password <password>', 'User\'s password')
+  .option('-l, --login', 'Force login')
+  .option('-e, --environment <items>', 'Key=Value environment variables', (item, list) => { list.push(item); return list; }, [])
+  .action(folder => deployment({folder, username: program.username, password: program.password, forceLogin: Boolean(program.login), environment: program.environment}))
+  .parse(process.argv);
+
+function deployment({folder, username, password, environment, forceLogin}){
+  const args = path.resolve(folder);
+  const pathObj = path.parse(args);
+  const tarPath = path.join(os.tmpdir(), `${pathObj.name}.tar`);
+  const dirDest = fs.createWriteStream(tarPath);
+  const packer = tar.Pack({ noProprietary: true, fromBase: true })
+    .on('error', err => console.error('An error occurred:', err))
+    .on('end', () => sync({
+      tarPath,
+      username,
+      password,
+      environment,
+      forceLogin,
+    }));
+
+  fstream.Reader({ path: args, type: 'Directory', follow: false, filter: tarFileFilter})
+    .on('error', err => console.error('An error occurred:', err))
+    .pipe(packer)
+    .pipe(dirDest);
+}
+
+function sync({tarPath, username, password, forceLogin, environment}){
+  stackSettings.load({environment, tarPath, username, password})
+  .then(settings => inputEmail(forceLogin ? '' : settings.username).then(data => Object.assign(settings, data)))
+  .then(settings => forceLogin ? inputPassword(settings.password).then(data => Object.assign(settings, data)) : Promise.resolve(settings))
+  .then(settings => !settings.token ? login(settings).catch(() => signup(settings)).then(data => Object.assign(settings, data)) : Promise.resolve(settings))
+  .then(settings => {
+    if(settings.message) console.error(settings.message);
+    return settings;
+  })
+  .then(settings => stackSettings.save(settings))
+  .then(settings => deploy(settings))
+  .then(settings => stackSettings.save(settings))
+  .then(settings => {
+    console.log('Deployed');
+    return settings;
+  })
+  .catch(err => {
+    if(err.message === 'canceled') return process.exit(0);
+    console.error(err.message);
+  });
+}
+
+function login({username, password}) {
+  if(!username) return Promise.reject(new Error('Missing username'));
+  if(!password) return Promise.reject(new Error('Missing password'));
+
+  return fetch(`${BASE_URL}/login`, {
+    method: 'POST',
+    body: JSON.stringify({username, password}),
+    headers: { 'Content-Type': 'application/json' },
+  })
+  .then(response => response.json())
+  .then(data => {
+    if(data && data.message && data.message === 'Unauthorized') {
+      return Promise.reject(new Error('Unauthorized'))
+    }
+    return data;
+  })
+}
+
+function signup({username, password}) {
+  if(!username) return Promise.reject(new Error('Missing username'));
+
+  return fetch(`${BASE_URL}/signup`, {
+    method: 'POST',
+    body: JSON.stringify({username, password}),
+    headers: { 'Content-Type': 'application/json' },
+  })
+  .then(response => response.json())
+}
+
+function deploy(settings) {
+  const pathObj = path.parse(settings.tarPath);
+  const form = new FormData();
+  const bar = new ProgressBar('Deploying [:bar] :percent Time: :elapsed s Step: :current/:total [:deployProgress]', { total: 10, width: 20 });
+
+  settings
+    .environment
+    .forEach(x => {
+      const item = x.split('=');
+      if(!item[0]) return;
+
+      form.append(item[0], item[1]);
+    });
+
+  form.append(pathObj.name, fs.createReadStream(settings.tarPath));
+
+  return fetch(`${BASE_URL}/stacks/${pathObj.name}`, {
+    method: 'POST',
+    body: form,
+    headers: { Authorization: `Bearer ${settings.token}`, }
+  })
+  .then(response => {
+    return new Promise((resolve, reject) => {
+      let result = undefined;
+      response.body.on('end', () => resolve(result));
+      response.body.on('data', data => {
+        try{
+          const progressState = JSON.parse(data);
+          result = progressState;
+          if(progressState && progressState.deployProgress) bar.tick(progressState);
+        } catch(err) {
+          reject(err);
+        }
+      });
+
+    });
+  })
+  .then(data => {
+    settings.serviceId = data.serviceId;
+    settings.serviceName = data.serviceName;
+    return settings;
+  })
+  .catch(err => {
+    console.error(err);
+    return settings;
+  });
+}
+
+function tarFileFilter(entry) {
+  return entry.basename !== 'node_modules' && entry.basename !== 'npm-debug.log';
+}
+
+function inputEmail(username) {
+  if(username) return Promise.resolve({username});
+
+  return new Promise((resolve, reject) => {
+    prompt.start({noHandleSIGINT: true});
+    prompt.get(['email'], (err, data) => {
+      if(err) return reject(err);
+      resolve({username: data.email});
+    });
+  });
+}
+
+function inputPassword(password) {
+  if(password) return Promise.resolve({password});
+
+  return new Promise((resolve, reject) => {
+    prompt.start({noHandleSIGINT: true});
+    prompt.get(['password'], (err, data) => {
+      if(err) return reject(err);
+      resolve(data);
+    });
+  });
+}

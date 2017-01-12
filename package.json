@@ -1,0 +1,19 @@
+{
+  "name": "dropstack-cli",
+  "version": "1.0.0",
+  "description": "DropStack Command Line Interface",
+  "bin": "./bin/dropstack",
+  "scripts": {},
+  "author": "DropStack <go@dropstack.run>",
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^2.9.0",
+    "form-data": "^2.1.2",
+    "fs-promise": "^1.0.0",
+    "fstream": "^1.0.10",
+    "node-fetch": "^1.6.3",
+    "progress": "^1.1.8",
+    "prompt": "^1.0.0",
+    "tar": "^2.2.1"
+  }
+}
