@@ -1,8 +1,11 @@
 {
   "name": "dropstack-cli",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "DropStack Command Line Interface",
-  "bin": "./bin/dropstack",
+  "bin": {
+    "dropstack": "./bin/dropstack",
+    "ds": "./bin/dropstack"
+  },
   "scripts": {},
   "author": "DropStack <go@dropstack.run>",
   "license": "MIT",
