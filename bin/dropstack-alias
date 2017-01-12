@@ -7,8 +7,6 @@ const program = require('commander');
 const fetch = require('node-fetch');
 const stackSettings = require('../lib/stack-settings')();
 
-if(!fs.existsSync(process.argv[2])) process.argv.splice(2, 0, process.cwd());
-
 program
   .arguments('<id> <url>')
   .action(alias)

@@ -10,5 +10,5 @@ program
   .command('remove [id]', 'Remove a deployment')
   .command('log [id]', 'StdOut/StdErr Log-Stream of deployment')
   .command('alias [id] [url]', 'Configures aliases for deployments')
-  .command('certs [id] <file...>', 'Manages your SSL certificates')
+  .command('ssl [id] [file...]', 'Manages your SSL certificates')
   .parse(process.argv);
