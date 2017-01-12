@@ -10,10 +10,12 @@ const stackSettings = require('../lib/stack-settings')();
 if(!fs.existsSync(process.argv[2])) process.argv.splice(2, 0, process.cwd());
 
 program
-  .action(environment)
+  .arguments('<id>')
+  .action(remove)
   .parse(process.argv);
 
-function environment(){
+function remove(id){
+  console.log(`Remove stack ${id}`);
   stackSettings.load()
   .then(console.log)
   .catch(console.error);
