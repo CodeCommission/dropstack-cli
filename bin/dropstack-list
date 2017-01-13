@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-const BASE_URL = `https://api.dropstack.run`;
+const DROPSTACK_BASE_URL = process.env.DROPSTACK_BASE_URL || `https://api.dropstack.run`;
 
 const path = require('path');
 const fs = require('fs');
@@ -15,7 +15,7 @@ program
 
 function list(){
   stackSettings.load()
-  .then(settings => fetch(`${BASE_URL}/stacks`, { headers: { Authorization: `Bearer ${settings.token}`, } }).then(response => response.json()))
+  .then(settings => fetch(`${DROPSTACK_BASE_URL}/stacks`, { headers: { Authorization: `Bearer ${settings.token}`, } }).then(response => response.json()))
   .then(data => (data || []).map(x => `${x.serviceId} | ${x.serviceName}`))
   .then(console.log)
   .catch(console.error);

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-const BASE_URL = `https://api.dropstack.run`;
+const DROPSTACK_BASE_URL = process.env.DROPSTACK_BASE_URL || `https://api.dropstack.run`;
 
 const fs = require('fs');
 const path = require('path');
