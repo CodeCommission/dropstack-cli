@@ -114,7 +114,8 @@ function deploy(settings) {
 
       form.append(item[0], item[1]);
     });
-
+  if(settings.serviceName) form.append('serviceName', settings.serviceName);
+  if(settings.serviceId) form.append('serviceId', settings.serviceId);
   form.append(pathObj.name, fs.createReadStream(settings.tarPath));
 
   return fetch(`${DROPSTACK_BASE_URL}/stacks/${pathObj.name}`, {
