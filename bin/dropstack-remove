@@ -9,11 +9,11 @@ const stackSettings = require('../lib/stack-settings')();
 
 program
   .arguments('<id>')
-  .action(remove)
+  .action(id => remove(id))
   .parse(process.argv);
 
 function remove(id){
-  stackSettings.load()
+  stackSettings.load({serviceId: id})
     .then(settings => fetch(`${DROPSTACK_BASE_URL}/stacks/${settings.serviceId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${settings.token}`} }).then(data => data.json()))
     .then(data => console.log(`Stack ${data.serviceId} removed`))
     .then(() => stackSettings.save({}))

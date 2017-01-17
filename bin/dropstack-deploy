@@ -25,12 +25,13 @@ program
   .option('-u, --username <username>', 'User email address')
   .option('-p, --password <password>', 'User\'s password')
   .option('-l, --login', 'Force login')
+  .option('-r, --reset', 'Reset login')
   .option('-e, --environment <items>', 'Key=Value environment variables', (item, list) => { list.push(item); return list; }, [])
-  .option('-i, --instances <number>', 'Number of instances')
-  .action(folder => deployment({folder, username: program.username, password: program.password, forceLogin: Boolean(program.login), environment: program.environment, instances: program.instances}))
+  .option('-i, --instances <number>', 'Number of running instances')
+  .action(folder => deployment({folder, username: program.username, password: program.password, forceLogin: Boolean(program.login), resetLogin: Boolean(program.reset), environment: program.environment, instances: program.instances}))
   .parse(process.argv);
 
-function deployment({folder, username, password, environment, forceLogin, instances}){
+function deployment({folder, username, password, environment, forceLogin, resetLogin, instances}){
   const args = path.resolve(folder);
   const pathObj = path.parse(args);
   const tarPath = path.join(os.tmpdir(), `${pathObj.name}.tar`);
@@ -42,6 +43,7 @@ function deployment({folder, username, password, environment, forceLogin, instan
       username,
       password,
       environment,
+      resetLogin,
       forceLogin,
       instances,
     }));
@@ -52,13 +54,14 @@ function deployment({folder, username, password, environment, forceLogin, instan
     .pipe(dirDest);
 }
 
-function sync({tarPath, username, password, forceLogin, environment, instances}){
+function sync({tarPath, username, password, environment, instances, forceLogin, resetLogin}){
   stackSettings.load({environment, tarPath, username, password, instances})
   .then(settings => inputEmail(forceLogin ? '' : settings.username).then(data => Object.assign(settings, data)))
+  .then(settings => resetLogin ? reset(settings).then(data => Promise.reject(data)) : Promise.resolve(settings))
   .then(settings => forceLogin ? inputPassword(settings.password).then(data => Object.assign(settings, data)) : Promise.resolve(settings))
   .then(settings => !settings.token ? login(settings).catch(() => signup(settings)).then(data => Object.assign(settings, data)) : Promise.resolve(settings))
   .then(settings => {
-    if(settings.message) console.error(settings.message);
+    if(settings.message) return Promise.reject(new Error(settings.message));
     return settings;
   })
   .then(settings => stackSettings.save(settings))
@@ -66,8 +69,18 @@ function sync({tarPath, username, password, forceLogin, environment, instances})
   .then(settings => stackSettings.save(settings))
   .then(settings => console.log(`Deployed ${settings.serviceName}`))
   .catch(err => {
+    if(err.message === '"We\'ve just sent you an email to reset your password."') {
+      console.log(err.message);
+      return process.exit(0);
+    }
     if(err.message === 'canceled') return process.exit(0);
-    console.error(err.message);
+    if(err.message === 'The user already exists.') {
+      console.error(`Login failed. Use the option --reset or --login to re-set your login information.`)
+      return process.exit(1);
+    }
+
+    console.error(`An error occurred: ${err.message}`);
+    process.exit(1);
   });
 }
 
@@ -86,7 +99,7 @@ function login({username, password}) {
       return Promise.reject(new Error('Unauthorized'))
     }
     return data;
-  })
+  });
 }
 
 function signup({username, password}) {
@@ -97,7 +110,27 @@ function signup({username, password}) {
     body: JSON.stringify({username, password}),
     headers: { 'Content-Type': 'application/json' },
   })
+  .then(response => response.json());
+}
+
+function reset({username, token}) {
+  if(!username) return Promise.reject(new Error('Missing username'));
+
+  return fetch(`${DROPSTACK_BASE_URL}/reset`, {
+    method: 'POST',
+    body: JSON.stringify({username}),
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  })
   .then(response => response.json())
+  .then(data => {
+    if(data && data.message && data.message === 'Unauthorized') {
+      return Promise.reject(new Error('Unauthorized'))
+    }
+    return data;
+  });
 }
 
 function deploy(settings) {
@@ -115,6 +148,7 @@ function deploy(settings) {
     });
   if(settings.serviceName) form.append('serviceName', settings.serviceName);
   if(settings.serviceId) form.append('serviceId', settings.serviceId);
+  if(settings.instances) form.append('instances', settings.instances);
   form.append(pathObj.name, fs.createReadStream(settings.tarPath));
 
   return fetch(`${DROPSTACK_BASE_URL}/stacks/${pathObj.name}`, {
