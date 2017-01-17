@@ -26,10 +26,11 @@ program
   .option('-p, --password <password>', 'User\'s password')
   .option('-l, --login', 'Force login')
   .option('-e, --environment <items>', 'Key=Value environment variables', (item, list) => { list.push(item); return list; }, [])
-  .action(folder => deployment({folder, username: program.username, password: program.password, forceLogin: Boolean(program.login), environment: program.environment}))
+  .option('-i, --instances <number>', 'Number of instances')
+  .action(folder => deployment({folder, username: program.username, password: program.password, forceLogin: Boolean(program.login), environment: program.environment, instances: program.instances}))
   .parse(process.argv);
 
-function deployment({folder, username, password, environment, forceLogin}){
+function deployment({folder, username, password, environment, forceLogin, instances}){
   const args = path.resolve(folder);
   const pathObj = path.parse(args);
   const tarPath = path.join(os.tmpdir(), `${pathObj.name}.tar`);
@@ -42,6 +43,7 @@ function deployment({folder, username, password, environment, forceLogin}){
       password,
       environment,
       forceLogin,
+      instances,
     }));
 
   fstream.Reader({ path: args, type: 'Directory', follow: false, filter: tarFileFilter})
@@ -50,8 +52,8 @@ function deployment({folder, username, password, environment, forceLogin}){
     .pipe(dirDest);
 }
 
-function sync({tarPath, username, password, forceLogin, environment}){
-  stackSettings.load({environment, tarPath, username, password})
+function sync({tarPath, username, password, forceLogin, environment, instances}){
+  stackSettings.load({environment, tarPath, username, password, instances})
   .then(settings => inputEmail(forceLogin ? '' : settings.username).then(data => Object.assign(settings, data)))
   .then(settings => forceLogin ? inputPassword(settings.password).then(data => Object.assign(settings, data)) : Promise.resolve(settings))
   .then(settings => !settings.token ? login(settings).catch(() => signup(settings)).then(data => Object.assign(settings, data)) : Promise.resolve(settings))
@@ -62,10 +64,7 @@ function sync({tarPath, username, password, forceLogin, environment}){
   .then(settings => stackSettings.save(settings))
   .then(settings => deploy(settings))
   .then(settings => stackSettings.save(settings))
-  .then(settings => {
-    console.log('Deployed');
-    return settings;
-  })
+  .then(settings => console.log(`Deployed ${settings.serviceName}`))
   .catch(err => {
     if(err.message === 'canceled') return process.exit(0);
     console.error(err.message);
