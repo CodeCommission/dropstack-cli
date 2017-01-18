@@ -73,7 +73,10 @@ function sync({tarPath, username, password, environment, instances, forceLogin, 
       console.log(err.message);
       return process.exit(0);
     }
-    if(err.message === 'canceled') return process.exit(0);
+    if(err.message === 'canceled') {
+      console.log('Canceled');
+      return process.exit(0);
+    }
     if(err.message === 'The user already exists.') {
       console.error(`Login failed. Use the option --reset or --login to re-set your login information.`)
       return process.exit(1);
@@ -178,7 +181,8 @@ function deploy(settings) {
     return settings;
   })
   .catch(err => {
-    console.error(err);
+    console.error(`Deployment error: ${err.message || err}`);
+    settings.message = err.message || err;
     return settings;
   });
 }
