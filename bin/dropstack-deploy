@@ -28,10 +28,19 @@ program
   .option('-r, --reset', 'Reset login')
   .option('-e, --environment <items>', 'Key=Value environment variables', (item, list) => { list.push(item); return list; }, [])
   .option('-i, --instances <number>', 'Number of running instances')
-  .action(folder => deployment({folder, username: program.username, password: program.password, forceLogin: Boolean(program.login), resetLogin: Boolean(program.reset), environment: program.environment, instances: program.instances}))
+  .option('-a, --alias <string>', 'CName/Alias (e.g. my.dropstack.run)')
+  .action(folder => deployment({
+    folder, username: program.username,
+    password: program.password,
+    forceLogin: Boolean(program.login),
+    resetLogin: Boolean(program.reset),
+    environment: program.environment,
+    instances: program.instances,
+    alias: program.alias,
+  }))
   .parse(process.argv);
 
-function deployment({folder, username, password, environment, forceLogin, resetLogin, instances}){
+function deployment({folder, username, password, environment, forceLogin, resetLogin, instances, alias}){
   const args = path.resolve(folder);
   const pathObj = path.parse(args);
   const tarPath = path.join(os.tmpdir(), `${pathObj.name}.tar`);
@@ -46,6 +55,7 @@ function deployment({folder, username, password, environment, forceLogin, resetL
       resetLogin,
       forceLogin,
       instances,
+      alias,
     }));
 
   fstream.Reader({ path: args, type: 'Directory', follow: false, filter: tarFileFilter})
@@ -54,8 +64,8 @@ function deployment({folder, username, password, environment, forceLogin, resetL
     .pipe(dirDest);
 }
 
-function sync({tarPath, username, password, environment, instances, forceLogin, resetLogin}){
-  stackSettings.load({environment, tarPath, username, password, instances})
+function sync({tarPath, username, password, environment, instances, forceLogin, resetLogin, alias}){
+  stackSettings.load({environment, tarPath, username, password, instances, alias})
   .then(settings => inputEmail(forceLogin ? '' : settings.username).then(data => Object.assign(settings, data)))
   .then(settings => resetLogin ? reset(settings).then(data => Promise.reject(data)) : Promise.resolve(settings))
   .then(settings => forceLogin ? inputPassword(settings.password).then(data => Object.assign(settings, data)) : Promise.resolve(settings))
@@ -149,8 +159,10 @@ function deploy(settings) {
 
       form.append(item[0], item[1]);
     });
+
   if(settings.serviceName) form.append('serviceName', settings.serviceName);
   if(settings.serviceId) form.append('serviceId', settings.serviceId);
+  if(settings.alias) form.append('serviceAlias', settings.alias);
   if(settings.instances) form.append('instances', settings.instances);
   form.append(pathObj.name, fs.createReadStream(settings.tarPath));
 
