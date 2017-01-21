@@ -3,12 +3,13 @@ const DROPSTACK_BASE_URL = process.env.DROPSTACK_BASE_URL || `https://api.dropst
 
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const program = require('commander');
 const prompt = require('prompt');
 const tar = require('tar');
 const fstream = require('fstream');
-const os = require('os');
 const fetch = require('node-fetch');
+const copyPaste = require('copy-paste');
 const ProgressBar = require('progress');
 const FormData = require('form-data');
 const stackSettings = require('../lib/stack-settings')();
@@ -77,7 +78,7 @@ function sync({tarPath, username, password, variables, instances, forceLogin, re
   .then(settings => stackSettings.save(settings))
   .then(settings => deploy(settings))
   .then(settings => stackSettings.save(settings))
-  .then(settings => console.log(`Deployed ${settings.serviceName}`))
+  .then(settings => console.log(`Deployed under:\nURL: ${settings.serviceUrl}\nCName: ${settings.serviceCName}`))
   .catch(err => {
     if(err.message === '"We\'ve just sent you an email to reset your password."') {
       console.log(err.message);
@@ -88,7 +89,7 @@ function sync({tarPath, username, password, variables, instances, forceLogin, re
       return process.exit(0);
     }
     if(err.message === 'The user already exists.') {
-      console.error(`Login failed. Use the option --reset or --login to re-set your login information.`)
+      console.error(`Login failed!\nUse the --login option to enter your logon information or the --reset option to re-set your password.`)
       return process.exit(1);
     }
 
@@ -190,6 +191,9 @@ function deploy(settings) {
   .then(data => {
     settings.serviceId = data.serviceId;
     settings.serviceName = data.serviceName;
+    settings.serviceUrl = data.serviceUrl;
+    settings.serviceCName = data.serviceCName;
+    copyPaste.copy(data.serviceUrl);
     return settings;
   })
   .catch(err => {
