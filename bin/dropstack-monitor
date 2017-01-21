@@ -15,5 +15,16 @@ program
 function monitor(name){
   console.log(`Monitoring and statistics for ${name}`);
   stackSettings.load()
-  .catch(console.error);
+  .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Login please')) : settings)
+  .then(settings => fetch(`${DROPSTACK_BASE_URL}/stacks/${name}/monitor`, { headers: { Authorization: `Bearer ${settings.token}`, } }).then(response => response.json()))
+  .then(data => Boolean(data.message) ? Promise.reject(new Error(data.message)) : data)
+  .then(data => console.log(`| Requests: ${data.count} | Bytes in: ${data.inBytes} | Bytes out: ${data.outBytes} |`))
+  .catch(err => {
+    if(err.message === 'Login please'){
+      console.error(err.message)
+      process.exit(1)
+    }
+    console.error(`An error occurred: ${err.message}`);
+    process.exit(1);
+  });
 }

@@ -14,7 +14,7 @@ program
   .parse(process.argv);
 
 function list(){
-  stackSettings.load({token: ''})
+  stackSettings.load()
   .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Login please')) : settings)
   .then(settings => fetch(`${DROPSTACK_BASE_URL}/stacks`, { headers: { Authorization: `Bearer ${settings.token}`, } }).then(response => response.json()))
   .then(data => Boolean(data.message) ? Promise.reject(new Error(data.message)) : data)
