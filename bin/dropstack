@@ -7,8 +7,8 @@ program
   .allowUnknownOption()
   .command('deploy [folder]', 'Performs a deployment (default)', {isDefault: true})
   .command('list', 'List deployments')
-  .command('remove [id]', 'Remove a deployment')
-  .command('log [id]', 'StdOut/StdErr Log-Stream of deployment')
-  .command('alias [id] [url]', 'Configures aliases for deployments')
-  .command('ssl [id] [file...]', 'Manages your SSL certificates')
+  .command('remove [name]', 'Remove a deployment')
+  .command('logs [name]', 'StdOut/StdErr Log-Stream of deployment')
+  .command('monitor [name]', 'Monitoring and statistics of deployment')
+  .command('account', 'Display your account information')
   .parse(process.argv);
