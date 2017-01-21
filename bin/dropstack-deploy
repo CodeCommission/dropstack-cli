@@ -26,21 +26,21 @@ program
   .option('-p, --password <password>', 'User\'s password')
   .option('-l, --login', 'Force login')
   .option('-r, --reset', 'Reset login')
-  .option('-e, --environment <items>', 'Key=Value environment variables', (item, list) => { list.push(item); return list; }, [])
+  .option('-v, --variables <items>', 'Key=Value variables', (item, list) => { list.push(item); return list; }, [])
   .option('-i, --instances <number>', 'Number of running instances')
-  .option('-a, --alias <string>', 'CName/Alias (e.g. my.dropstack.run)')
+  .option('-c, --cname <string>', 'Set a canonical name (CNAME) (e.g. my.dropstack.run)')
   .action(folder => deployment({
     folder, username: program.username,
     password: program.password,
     forceLogin: Boolean(program.login),
     resetLogin: Boolean(program.reset),
-    environment: program.environment,
+    variables: program.variables,
     instances: program.instances,
-    alias: program.alias,
+    cname: program.cname,
   }))
   .parse(process.argv);
 
-function deployment({folder, username, password, environment, forceLogin, resetLogin, instances, alias}){
+function deployment({folder, username, password, variables, forceLogin, resetLogin, instances, cname}){
   const args = path.resolve(folder);
   const pathObj = path.parse(args);
   const tarPath = path.join(os.tmpdir(), `${pathObj.name}.tar`);
@@ -51,11 +51,11 @@ function deployment({folder, username, password, environment, forceLogin, resetL
       tarPath,
       username,
       password,
-      environment,
+      variables,
       resetLogin,
       forceLogin,
       instances,
-      alias,
+      cname,
     }));
 
   fstream.Reader({ path: args, type: 'Directory', follow: false, filter: tarFileFilter})
@@ -64,8 +64,8 @@ function deployment({folder, username, password, environment, forceLogin, resetL
     .pipe(dirDest);
 }
 
-function sync({tarPath, username, password, environment, instances, forceLogin, resetLogin, alias}){
-  stackSettings.load({environment, tarPath, username, password, instances, alias})
+function sync({tarPath, username, password, variables, instances, forceLogin, resetLogin, cname}){
+  stackSettings.load({variables, tarPath, username, password, instances, cname})
   .then(settings => inputEmail(forceLogin ? '' : settings.username).then(data => Object.assign(settings, data)))
   .then(settings => resetLogin ? reset(settings).then(data => Promise.reject(data)) : Promise.resolve(settings))
   .then(settings => forceLogin ? inputPassword(settings.password).then(data => Object.assign(settings, data)) : Promise.resolve(settings))
@@ -152,7 +152,7 @@ function deploy(settings) {
   const bar = new ProgressBar('Deploying [:bar] :percent Time: :elapsed s Step: :current/:total [:deployProgress]', { total: 10, width: 20 });
 
   settings
-    .environment
+    .variables
     .forEach(x => {
       const item = x.split('=');
       if(!item[0]) return;
@@ -162,8 +162,8 @@ function deploy(settings) {
 
   if(settings.serviceName) form.append('serviceName', settings.serviceName);
   if(settings.serviceId) form.append('serviceId', settings.serviceId);
-  if(settings.alias) form.append('serviceAlias', settings.alias);
-  if(settings.instances) form.append('instances', settings.instances);
+  if(settings.cname) form.append('serviceCname', settings.cname);
+  if(settings.instances) form.append('serviceInstances', settings.instances);
   form.append(pathObj.name, fs.createReadStream(settings.tarPath));
 
   return fetch(`${DROPSTACK_BASE_URL}/stacks/${pathObj.name}`, {
