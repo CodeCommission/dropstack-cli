@@ -1,0 +1,19 @@
+#!/usr/bin/env node
+const DROPSTACK_BASE_URL = process.env.DROPSTACK_BASE_URL || `https://api.dropstack.run`;
+
+const fs = require('fs');
+const path = require('path');
+const program = require('commander');
+const fetch = require('node-fetch');
+const stackSettings = require('../lib/stack-settings')();
+
+program
+  .arguments('<name>')
+  .action(x => monitor(x))
+  .parse(process.argv);
+
+function monitor(name){
+  console.log(`Monitoring and statistics for ${name}`);
+  stackSettings.load()
+  .catch(console.error);
+}

@@ -1,0 +1,23 @@
+#!/usr/bin/env node
+const DROPSTACK_BASE_URL = process.env.DROPSTACK_BASE_URL || `https://api.dropstack.run`;
+
+const fs = require('fs');
+const path = require('path');
+const program = require('commander');
+const fetch = require('node-fetch');
+const stackSettings = require('../lib/stack-settings')();
+
+if(!fs.existsSync(process.argv[2])) process.argv.splice(2, 0, process.cwd());
+
+program
+  .action(x => account())
+  .parse(process.argv);
+
+function account(){
+  stackSettings.load()
+  .then(settings => {
+    console.log(`Account information for ${settings.username}`)
+    return settings;
+  })
+  .catch(console.error);
+}
