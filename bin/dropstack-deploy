@@ -6,6 +6,7 @@ const path = require('path');
 const os = require('os');
 const program = require('commander');
 const prompt = require('prompt');
+const chalk = require('chalk');
 const tar = require('tar');
 const fstream = require('fstream');
 const fetch = require('node-fetch');
@@ -78,14 +79,18 @@ function sync({tarPath, username, password, variables, instances, forceLogin, re
   .then(settings => stackSettings.save(settings))
   .then(settings => deploy(settings))
   .then(settings => stackSettings.save(settings))
-  .then(settings => console.log(`Deployed under:\nURL: ${settings.serviceUrl}\nCName: ${settings.serviceCName}`))
+  .then(settings => {
+    console.log(chalk.green('Stack deployment completed!'), chalk.gray('Paste your Stack-URL into your browser.'));
+    console.log(`Stack-URL: ${chalk.bold(settings.serviceUrl)}`);
+    if(settings && settings.serviceCName && settings.serviceCName.replace('https://', '')) console.log(`Stack-CName: ${settings.serviceCName}`);
+  })
   .catch(err => {
     if(err.message === '"We\'ve just sent you an email to reset your password."') {
       console.log(err.message);
       return process.exit(0);
     }
     if(err.message === 'canceled') {
-      console.log('Canceled');
+      console.log('Deployment canceled!');
       return process.exit(0);
     }
     if(err.message === 'The user already exists.') {
@@ -150,7 +155,7 @@ function reset({username, token}) {
 function deploy(settings) {
   const pathObj = path.parse(settings.tarPath);
   const form = new FormData();
-  const bar = new ProgressBar('Deploying [:bar] :percent Time: :elapsed s Step: :current/:total [:deployProgress]', { total: 10, width: 20 });
+  const bar = new ProgressBar('[:current/:total :deployProgress] [:bar] :percent :elapseds', { total: 11, width: 24 });
 
   settings
     .variables
