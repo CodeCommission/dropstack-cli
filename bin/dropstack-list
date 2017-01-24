@@ -18,7 +18,7 @@ function list(){
   .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Login please')) : settings)
   .then(settings => fetch(`${DROPSTACK_BASE_URL}/stacks`, { headers: { Authorization: `Bearer ${settings.token}`, } }).then(response => response.json()))
   .then(data => Boolean(data.message) ? Promise.reject(new Error(data.message)) : data)
-  .then(data => (data || []).map(x => `| ${x.serviceId} | ${x.serviceName} | ${x.serviceUrl} | ${x.serviceCName} |`))
+  .then(data => (data || []).map(x => `| ${x.serviceName} | ${x.serviceUrl} | ${x.serviceCName || '-'} |`))
   .then(data => {
     if(data.length > 0) return data.map(x => console.log(x));
     console.log('Nothing deployed');

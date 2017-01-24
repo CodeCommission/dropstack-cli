@@ -10,14 +10,30 @@ const stackSettings = require('../lib/stack-settings')();
 if(!fs.existsSync(process.argv[2])) process.argv.splice(2, 0, process.cwd());
 
 program
-  .action(x => account())
+  .option('-t, --token', 'Display current user JWT token')
+  .action(x => account({forceToken: program.token}))
   .parse(process.argv);
 
-function account(){
+function account({forceToken}){
   stackSettings.load()
+  .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Login please')) : settings)
   .then(settings => {
-    console.log(`Account information for ${settings.username}`)
+    console.log(`Account information for ${settings.username}`);
     return settings;
   })
-  .catch(console.error);
+  .then(settings => fetch(`${DROPSTACK_BASE_URL}/account`, { headers: { Authorization: `Bearer ${settings.token}`, } }).then(response => response.json()).then(data => Object.assign(data, settings)))
+  .then(data => Boolean(data.message) ? Promise.reject(new Error(data.message)) : data)
+  .then(data => {
+    console.log(`EMail: ${data.email}`);
+    console.log(`Plan: ${data.metadata.plan || '-'}`);
+    if(forceToken) console.log(`JWT: ${data.token}`);
+  })
+  .catch(err => {
+    if(err.message === 'Login please'){
+      console.error(err.message)
+      process.exit(1)
+    }
+    console.error(`An error occurred: ${err.message}`);
+    process.exit(1);
+  });
 }

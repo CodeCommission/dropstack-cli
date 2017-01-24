@@ -13,9 +13,9 @@ program
   .parse(process.argv);
 
 function remove(name){
-  stackSettings.load({serviceId: name})
-    .then(settings => fetch(`${DROPSTACK_BASE_URL}/stacks/${settings.serviceId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${settings.token}`} }).then(data => data.json()))
-    .then(data => console.log(`Stack ${data.serviceId} removed`))
+  stackSettings.load()
+    .then(settings => fetch(`${DROPSTACK_BASE_URL}/stacks/${name || settings.serviceName}`, { method: 'DELETE', headers: { Authorization: `Bearer ${settings.token}`} }).then(data => data.json()))
+    .then(data => console.log(`Stack ${data.serviceName} removed`))
     .then(() => stackSettings.remove())
     .catch(console.error);
 }

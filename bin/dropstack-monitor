@@ -16,9 +16,9 @@ function monitor(name){
   console.log(`Monitoring and statistics for ${name}`);
   stackSettings.load()
   .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Login please')) : settings)
-  .then(settings => fetch(`${DROPSTACK_BASE_URL}/stacks/${name}/monitor`, { headers: { Authorization: `Bearer ${settings.token}`, } }).then(response => response.json()))
+  .then(settings => fetch(`${DROPSTACK_BASE_URL}/stacks/${name || settings.serviceName}/monitor`, { headers: { Authorization: `Bearer ${settings.token}`, } }).then(response => response.json()))
   .then(data => Boolean(data.message) ? Promise.reject(new Error(data.message)) : data)
-  .then(data => console.log(`| Requests: ${data.count} | Bytes in: ${data.inBytes} | Bytes out: ${data.outBytes} |`))
+  .then(data => console.log(`| Requests: ${data.count || 0} | Bytes in: ${data.inBytes || 0} | Bytes out: ${data.outBytes || 0} |`))
   .catch(err => {
     if(err.message === 'Login please'){
       console.error(err.message)

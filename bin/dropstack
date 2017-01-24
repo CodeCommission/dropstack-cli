@@ -3,7 +3,7 @@ const program = require('commander');
 const manifest = require('../package.json');
 
 program
-  .version(manifest.version)
+  .version(`${manifest.name} v${manifest.version}\n${manifest.author}`)
   .allowUnknownOption()
   .command('deploy [folder]', 'Performs a deployment (default)', {isDefault: true})
   .command('list', 'List deployments')
