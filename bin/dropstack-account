@@ -33,7 +33,7 @@ function account({forceToken}){
       console.error(err.message)
       process.exit(1)
     }
-    console.error(`An error occurred: ${err.message}`);
+    console.error(chalk.red(`\nAn error occurred: ${chalk.gray(err.message)}`));
     process.exit(1);
   });
 }

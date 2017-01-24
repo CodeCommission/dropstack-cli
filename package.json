@@ -1,6 +1,6 @@
 {
   "name": "dropstack-cli",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "dropstack Command Line Interface",
   "bin": {
     "dropstack": "./bin/dropstack",

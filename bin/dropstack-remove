@@ -5,6 +5,8 @@ const fs = require('fs');
 const path = require('path');
 const program = require('commander');
 const fetch = require('node-fetch');
+const ProgressBar = require('progress');
+const chalk = require('chalk');
 const stackSettings = require('../lib/stack-settings')();
 
 program
@@ -13,9 +15,32 @@ program
   .parse(process.argv);
 
 function remove(name){
+  const bar = new ProgressBar('[:current/:total :destroyProgress] [:bar] :percent :elapseds', { total: 4, width: 24 });
+
   stackSettings.load()
-    .then(settings => fetch(`${DROPSTACK_BASE_URL}/stacks/${name || settings.serviceName}`, { method: 'DELETE', headers: { Authorization: `Bearer ${settings.token}`} }).then(data => data.json()))
+    .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Login please')) : settings)
+    .then(settings => fetch(`${DROPSTACK_BASE_URL}/stacks/${name || settings.serviceName}`, { method: 'DELETE', headers: { Authorization: `Bearer ${settings.token}`} }))
+    .then(response => {
+      return new Promise((resolve, reject) => {
+        let result = undefined;
+        response.body.on('end', () => resolve(result));
+        response.body.on('data', data => {
+          const progressState = JSON.parse(data);
+          result = progressState;
+          if(progressState && progressState.message) return reject(new Error(progressState.message));
+          if(progressState && progressState.destroyProgress) bar.tick(progressState);
+        });
+
+      });
+    })
     .then(data => console.log(`Stack ${data.serviceName} removed`))
     .then(() => stackSettings.remove())
-    .catch(console.error);
+    .catch(err => {
+      if(err.message === 'Login please'){
+        console.error(err.message)
+        process.exit(1)
+      }
+      console.error(chalk.red(`\nAn error occurred: ${chalk.gray(err.message)}`));
+      process.exit(1);
+    });
 }

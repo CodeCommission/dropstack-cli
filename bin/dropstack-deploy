@@ -48,7 +48,7 @@ function deployment({folder, username, password, variables, forceLogin, resetLog
   const tarPath = path.join(os.tmpdir(), `${pathObj.name}.tar`);
   const dirDest = fs.createWriteStream(tarPath);
   const packer = tar.Pack({ noProprietary: true, fromBase: true })
-    .on('error', err => console.error('An error occurred:', err))
+    .on('error', err => console.error(chalk.red(`An error occurred: ${chalk.gray(err.message)}`)))
     .on('end', () => sync({
       tarPath,
       username,
@@ -61,7 +61,7 @@ function deployment({folder, username, password, variables, forceLogin, resetLog
     }));
 
   fstream.Reader({ path: args, type: 'Directory', follow: false, filter: tarFileFilter})
-    .on('error', err => console.error('An error occurred:', err))
+    .on('error', err => console.error(chalk.red(`An error occurred: ${chalk.gray(err.message)}`)))
     .pipe(packer)
     .pipe(dirDest);
 }
@@ -80,25 +80,25 @@ function sync({tarPath, username, password, variables, instances, forceLogin, re
   .then(settings => deploy(settings))
   .then(settings => stackSettings.save(settings))
   .then(settings => {
-    console.log(chalk.green('Stack deployment completed!'), chalk.gray('Paste your Stack-URL into your browser.'));
+    console.log(chalk.green('Stack deployment completed!'), chalk.gray('Stack-URL copied to clipboard.'));
     console.log(`Stack-URL: ${chalk.bold(settings.serviceUrl)}`);
     if(settings && settings.serviceCName && settings.serviceCName.replace('https://', '')) console.log(`Stack-CName: ${settings.serviceCName}`);
   })
   .catch(err => {
     if(err.message === '"We\'ve just sent you an email to reset your password."') {
-      console.log(err.message);
+      console.log(chalk.red(err.message));
       return process.exit(0);
     }
     if(err.message === 'canceled') {
-      console.log('Deployment canceled!');
+      console.log(chalk.yellow('Deployment canceled!'));
       return process.exit(0);
     }
     if(err.message === 'The user already exists.') {
-      console.error(`Login failed!\nUse the --login option to enter your logon information or the --reset option to re-set your password.`)
+      console.error(chalk.red(`Login failed!\nUse the --login option to enter your logon information or the --reset option to re-set your password.`))
       return process.exit(1);
     }
 
-    console.error(`An error occurred: ${err.message}`);
+    console.error(chalk.red(`\nAn error occurred ${chalk.gray(err.message)}`));
     process.exit(1);
   });
 }
@@ -185,6 +185,7 @@ function deploy(settings) {
         try{
           const progressState = JSON.parse(data);
           result = progressState;
+          if(progressState && progressState.message) return new Promise.reject(new Error(progressState.message));
           if(progressState && progressState.deployProgress) bar.tick(progressState);
         } catch(err) {
           reject(err);
@@ -199,11 +200,6 @@ function deploy(settings) {
     settings.serviceUrl = data.serviceUrl;
     settings.serviceCName = data.serviceCName;
     copyPaste.copy(data.serviceUrl);
-    return settings;
-  })
-  .catch(err => {
-    console.error(`Deployment error: ${err.message || err}`);
-    settings.message = err.message || err;
     return settings;
   });
 }
