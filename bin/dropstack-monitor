@@ -4,6 +4,7 @@ const DROPSTACK_BASE_URL = process.env.DROPSTACK_BASE_URL || `https://api.dropst
 const fs = require('fs');
 const path = require('path');
 const program = require('commander');
+const chalk = require('chalk');
 const fetch = require('node-fetch');
 const stackSettings = require('../lib/stack-settings')();
 
@@ -21,8 +22,8 @@ function monitor(name){
   .then(data => console.log(`| Requests: ${data.count || 0} | Bytes in: ${data.inBytes || 0} | Bytes out: ${data.outBytes || 0} |`))
   .catch(err => {
     if(err.message === 'Login please'){
-      console.error(err.message)
-      process.exit(1)
+      console.error(chalk.red(err.message));
+      process.exit(1);
     }
     console.error(chalk.red(`\nAn error occurred: ${chalk.gray(err.message)}`));
     process.exit(1);

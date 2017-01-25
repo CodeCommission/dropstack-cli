@@ -5,7 +5,6 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const program = require('commander');
-const prompt = require('prompt');
 const chalk = require('chalk');
 const tar = require('tar');
 const fstream = require('fstream');
@@ -13,13 +12,8 @@ const fetch = require('node-fetch');
 const copyPaste = require('copy-paste');
 const ProgressBar = require('progress');
 const FormData = require('form-data');
+const credentials = require('../lib/credentials')();
 const stackSettings = require('../lib/stack-settings')();
-
-prompt.message = '';
-prompt.delimiter = ':';
-
-if(!fs.existsSync(process.argv[2])) process.argv.splice(2, 0, process.cwd());
-
 process.on('SIGINT', () => process.exit(0));
 
 program
@@ -31,18 +25,11 @@ program
   .option('-v, --variables <items>', 'Key=Value variables', (item, list) => { list.push(item); return list; }, [])
   .option('-i, --instances <number>', 'Number of running instances')
   .option('-c, --cname <string>', 'Set a canonical name (CNAME) (e.g. my.dropstack.run)')
-  .action(folder => deployment({
-    folder, username: program.username,
-    password: program.password,
-    forceLogin: Boolean(program.login),
-    resetLogin: Boolean(program.reset),
-    variables: program.variables,
-    instances: program.instances,
-    cname: program.cname,
-  }))
   .parse(process.argv);
 
-function deployment({folder, username, password, variables, forceLogin, resetLogin, instances, cname}){
+if(!program.args.length) deploy(Object.assign(program.opts(), {folder: process.cwd()}));
+
+function deploy({folder, username, password, login, reset, variables, instances, cname}){
   const args = path.resolve(folder);
   const pathObj = path.parse(args);
   const tarPath = path.join(os.tmpdir(), `${pathObj.name}.tar`);
@@ -54,8 +41,8 @@ function deployment({folder, username, password, variables, forceLogin, resetLog
       username,
       password,
       variables,
-      resetLogin,
-      forceLogin,
+      reset,
+      login,
       instances,
       cname,
     }));
@@ -66,21 +53,21 @@ function deployment({folder, username, password, variables, forceLogin, resetLog
     .pipe(dirDest);
 }
 
-function sync({tarPath, username, password, variables, instances, forceLogin, resetLogin, cname}){
+function sync({tarPath, username, password, login, reset, variables, instances, cname}){
   stackSettings.load({variables, tarPath, username, password, instances, cname})
-  .then(settings => inputEmail(forceLogin ? '' : settings.username).then(data => Object.assign(settings, data)))
-  .then(settings => resetLogin ? reset(settings).then(data => Promise.reject(data)) : Promise.resolve(settings))
-  .then(settings => forceLogin ? inputPassword(settings.password).then(data => Object.assign(settings, data)) : Promise.resolve(settings))
-  .then(settings => !settings.token ? login(settings).catch(() => signup(settings)).then(data => Object.assign(settings, data)) : Promise.resolve(settings))
+  .then(settings => credentials.inputEmail(login ? '' : settings.username).then(data => Object.assign(settings, data)))
+  .then(settings => reset ? credentials.reset(settings).then(data => Promise.reject(data)) : Promise.resolve(settings))
+  .then(settings => login ? credentials.inputPassword(settings.password).then(data => Object.assign(settings, data)) : Promise.resolve(settings))
+  .then(settings => !settings.token ? credentials.login(settings).catch(() => credentials.signup(settings)).then(data => Object.assign(settings, data)) : Promise.resolve(settings))
   .then(settings => {
     if(settings.message) return Promise.reject(new Error(settings.message));
     return settings;
   })
   .then(settings => stackSettings.save(settings))
-  .then(settings => deploy(settings))
+  .then(settings => deployment(settings))
   .then(settings => stackSettings.save(settings))
   .then(settings => {
-    console.log(chalk.green('Stack deployment completed!'), chalk.gray('Stack-URL copied to clipboard.'));
+    console.log(chalk.green('Deployment completed'), chalk.gray('Instance URL copied to clipboard.'));
     console.log(`Stack-URL: ${chalk.bold(settings.serviceUrl)}`);
     if(settings && settings.serviceCName && settings.serviceCName.replace('https://', '')) console.log(`Stack-CName: ${settings.serviceCName}`);
   })
@@ -90,11 +77,11 @@ function sync({tarPath, username, password, variables, instances, forceLogin, re
       return process.exit(0);
     }
     if(err.message === 'canceled') {
-      console.log(chalk.yellow('Deployment canceled!'));
+      console.log(chalk.yellow('aborted'));
       return process.exit(0);
     }
     if(err.message === 'The user already exists.') {
-      console.error(chalk.red(`Login failed!\nUse the --login option to enter your logon information or the --reset option to re-set your password.`))
+      console.error(chalk.red(`Login failed`))
       return process.exit(1);
     }
 
@@ -103,56 +90,7 @@ function sync({tarPath, username, password, variables, instances, forceLogin, re
   });
 }
 
-function login({username, password}) {
-  if(!username) return Promise.reject(new Error('Missing username'));
-  if(!password) return Promise.reject(new Error('Missing password'));
-
-  return fetch(`${DROPSTACK_BASE_URL}/login`, {
-    method: 'POST',
-    body: JSON.stringify({username, password}),
-    headers: { 'Content-Type': 'application/json' },
-  })
-  .then(response => response.json())
-  .then(data => {
-    if(data && data.message && data.message === 'Unauthorized') {
-      return Promise.reject(new Error('Unauthorized'))
-    }
-    return data;
-  });
-}
-
-function signup({username, password}) {
-  if(!username) return Promise.reject(new Error('Missing username'));
-
-  return fetch(`${DROPSTACK_BASE_URL}/signup`, {
-    method: 'POST',
-    body: JSON.stringify({username, password}),
-    headers: { 'Content-Type': 'application/json' },
-  })
-  .then(response => response.json());
-}
-
-function reset({username, token}) {
-  if(!username) return Promise.reject(new Error('Missing username'));
-
-  return fetch(`${DROPSTACK_BASE_URL}/reset`, {
-    method: 'POST',
-    body: JSON.stringify({username}),
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  })
-  .then(response => response.json())
-  .then(data => {
-    if(data && data.message && data.message === 'Unauthorized') {
-      return Promise.reject(new Error('Unauthorized'))
-    }
-    return data;
-  });
-}
-
-function deploy(settings) {
+function deployment(settings) {
   const pathObj = path.parse(settings.tarPath);
   const form = new FormData();
   const bar = new ProgressBar('[:current/:total :deployProgress] [:bar] :percent :elapseds', { total: 11, width: 24 });
@@ -206,28 +144,4 @@ function deploy(settings) {
 
 function tarFileFilter(entry) {
   return entry.basename !== 'node_modules' && entry.basename !== 'npm-debug.log';
-}
-
-function inputEmail(username) {
-  if(username) return Promise.resolve({username});
-
-  return new Promise((resolve, reject) => {
-    prompt.start({noHandleSIGINT: true});
-    prompt.get(['email'], (err, data) => {
-      if(err) return reject(err);
-      resolve({username: data.email});
-    });
-  });
-}
-
-function inputPassword(password) {
-  if(password) return Promise.resolve({password});
-
-  return new Promise((resolve, reject) => {
-    prompt.start({noHandleSIGINT: true});
-    prompt.get([{ name: 'password', hidden: true, replace: '*'}], (err, data) => {
-      if(err) return reject(err);
-      resolve(data);
-    });
-  });
 }

@@ -5,18 +5,45 @@ const fs = require('fs');
 const path = require('path');
 const program = require('commander');
 const fetch = require('node-fetch');
+const chalk = require('chalk');
+const credentials = require('../lib/credentials')();
 const stackSettings = require('../lib/stack-settings')();
 
-if(!fs.existsSync(process.argv[2])) process.argv.splice(2, 0, process.cwd());
-
 program
+  .option('-u, --username <username>', 'User email address')
+  .option('-p, --password <password>', 'User\'s password')
+  .option('-s, --signout', 'Sign out')
+  .option('-l, --login', 'Force login')
+  .option('-r, --reset', 'Reset login')
   .option('-t, --token', 'Display current user JWT token')
-  .action(x => account({forceToken: program.token}))
   .parse(process.argv);
 
-function account({forceToken}){
-  stackSettings.load()
-  .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Login please')) : settings)
+if(!program.args.length) account(program.opts());
+
+function account({token, username, password, login, reset, signout}) {
+  if(signout) {
+    return stackSettings.removeGlobalFile()
+      .then(() => stackSettings.removeProjectFile())
+      .then(() => {
+        console.log(chalk.green(`signed out`));
+        process.exit(0);
+      })
+      .catch(err => {
+        console.error(chalk.red(`\nAn error occurred ${chalk.gray(err.message)}`));
+        process.exit(1);
+      });
+  }
+
+  stackSettings.load({token, username, password, login, reset, signout})
+  .then(settings => reset ? credentials.reset(settings).then(data => Promise.reject(data)) : Promise.resolve(settings))
+  .then(settings => credentials.inputEmail(login ? '' : settings.username).then(data => Object.assign(settings, data)))
+  .then(settings => !settings.token ? credentials.inputPassword(settings.password).then(data => Object.assign(settings, data)) : Promise.resolve(settings))
+  .then(settings => !settings.token ? credentials.login(settings).catch(() => credentials.signup(settings)).then(data => Object.assign(settings, data)) : Promise.resolve(settings))
+  .then(settings => {
+    if(settings.message) return Promise.reject(new Error(settings.message));
+    return settings;
+  })
+  .then(settings => stackSettings.save(settings))
   .then(settings => {
     console.log(`Account information for ${settings.username}`);
     return settings;
@@ -26,14 +53,24 @@ function account({forceToken}){
   .then(data => {
     console.log(`EMail: ${data.email}`);
     console.log(`Plan: ${data.metadata.plan || '-'}`);
-    if(forceToken) console.log(`JWT: ${data.token}`);
+    if(token) console.log(`JWT: ${data.token}`);
+    process.exit(0);
   })
   .catch(err => {
-    if(err.message === 'Login please'){
-      console.error(err.message)
-      process.exit(1)
+    if(err.message === '"We\'ve just sent you an email to reset your password."') {
+      console.log(chalk.red(err.message));
+      return process.exit(0);
     }
-    console.error(chalk.red(`\nAn error occurred: ${chalk.gray(err.message)}`));
+    if(err.message === 'canceled') {
+      console.log(chalk.yellow('aborted'));
+      return process.exit(0);
+    }
+    if(err.message === 'The user already exists.') {
+      console.error(chalk.red(`Login failed`));
+      return process.exit(1);
+    }
+
+    console.error(chalk.red(`\nAn error occurred ${chalk.gray(err.message)}`));
     process.exit(1);
   });
 }

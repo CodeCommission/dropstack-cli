@@ -4,14 +4,13 @@ const DROPSTACK_BASE_URL = process.env.DROPSTACK_BASE_URL || `https://api.dropst
 const path = require('path');
 const fs = require('fs');
 const program = require('commander');
+const chalk = require('chalk');
 const fetch = require('node-fetch');
 const stackSettings = require('../lib/stack-settings')();
 
-if(!fs.existsSync(process.argv[2])) process.argv.splice(2, 0, process.cwd());
+program.parse(process.argv);
 
-program
-  .action(list)
-  .parse(process.argv);
+if(!program.args.length) list();
 
 function list(){
   stackSettings.load()
@@ -25,8 +24,8 @@ function list(){
   })
   .catch(err => {
     if(err.message === 'Login please'){
-      console.error(err.message)
-      process.exit(1)
+      console.error(chalk.red(err.message));
+      process.exit(1);
     }
     console.error(chalk.red(`\nAn error occurred: ${chalk.gray(err.message)}`));
     process.exit(1);
