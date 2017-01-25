@@ -27,7 +27,7 @@ program
 
 if(!program.args.length) deploy(Object.assign(program.opts(), {folder: process.cwd()}));
 
-function deploy({folder, login, reset, variables, instances, cname}){
+function deploy({folder, login, reset, variables, instances, cname, excludes}){
   const args = path.resolve(folder);
   const pathObj = path.parse(args);
   const tarPath = path.join(os.tmpdir(), `${pathObj.name}.tar`);
@@ -43,7 +43,7 @@ function deploy({folder, login, reset, variables, instances, cname}){
       cname,
     }));
 
-  fstream.Reader({ path: args, type: 'Directory', follow: false, filter: tarFileFilter})
+  fstream.Reader({ path: args, type: 'Directory', follow: false, filter: x => tarFileFilter(x, excludes)})
     .on('error', err => console.error(chalk.red(`An error occurred: ${chalk.gray(err.message)}`)))
     .pipe(packer)
     .pipe(dirDest);
@@ -136,6 +136,6 @@ function deployment(settings) {
   });
 }
 
-function tarFileFilter(entry) {
-  return entry.basename !== 'node_modules' && entry.basename !== 'npm-debug.log';
+function tarFileFilter(entry, excludes = []) {
+  return entry.basename !== 'node_modules' && entry.basename !== 'npm-debug.log' && entry.basename !== '.git';
 }
