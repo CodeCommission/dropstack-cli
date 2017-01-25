@@ -18,8 +18,6 @@ process.on('SIGINT', () => process.exit(0));
 
 program
   .arguments('[folder]')
-  .option('-u, --username <username>', 'User email address')
-  .option('-p, --password <password>', 'User\'s password')
   .option('-l, --login', 'Force login')
   .option('-r, --reset', 'Reset login')
   .option('-v, --variables <items>', 'Key=Value variables', (item, list) => { list.push(item); return list; }, [])
@@ -29,7 +27,7 @@ program
 
 if(!program.args.length) deploy(Object.assign(program.opts(), {folder: process.cwd()}));
 
-function deploy({folder, username, password, login, reset, variables, instances, cname}){
+function deploy({folder, login, reset, variables, instances, cname}){
   const args = path.resolve(folder);
   const pathObj = path.parse(args);
   const tarPath = path.join(os.tmpdir(), `${pathObj.name}.tar`);
@@ -38,8 +36,6 @@ function deploy({folder, username, password, login, reset, variables, instances,
     .on('error', err => console.error(chalk.red(`An error occurred: ${chalk.gray(err.message)}`)))
     .on('end', () => sync({
       tarPath,
-      username,
-      password,
       variables,
       reset,
       login,
@@ -53,8 +49,8 @@ function deploy({folder, username, password, login, reset, variables, instances,
     .pipe(dirDest);
 }
 
-function sync({tarPath, username, password, login, reset, variables, instances, cname}){
-  stackSettings.load({variables, tarPath, username, password, instances, cname})
+function sync({tarPath, login, reset, variables, instances, cname}){
+  stackSettings.load({variables, tarPath, instances, cname})
   .then(settings => credentials.inputEmail(login ? '' : settings.username).then(data => Object.assign(settings, data)))
   .then(settings => reset ? credentials.reset(settings).then(data => Promise.reject(data)) : Promise.resolve(settings))
   .then(settings => login ? credentials.inputPassword(settings.password).then(data => Object.assign(settings, data)) : Promise.resolve(settings))
