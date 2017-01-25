@@ -7,7 +7,7 @@ const program = require('commander');
 const fetch = require('node-fetch');
 const chalk = require('chalk');
 const credentials = require('../lib/credentials')();
-const stackSettings = require('../lib/stack-settings')();
+const stackSettings = require('../lib/settings')();
 
 program
   .option('-u, --username <username>', 'User email address')

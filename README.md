@@ -1,6 +1,6 @@
 # dropstack CLI
 
-> Continuous Deployment fast and easy!
+> you ship it - we run it!
 
 ## Usage
 

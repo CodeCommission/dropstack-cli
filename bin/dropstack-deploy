@@ -13,7 +13,7 @@ const copyPaste = require('copy-paste');
 const ProgressBar = require('progress');
 const FormData = require('form-data');
 const credentials = require('../lib/credentials')();
-const stackSettings = require('../lib/stack-settings')();
+const stackSettings = require('../lib/settings')();
 process.on('SIGINT', () => process.exit(0));
 
 program
@@ -105,7 +105,6 @@ function deployment(settings) {
     });
 
   if(settings.serviceName) form.append('serviceName', settings.serviceName);
-  if(settings.serviceId) form.append('serviceId', settings.serviceId);
   if(settings.cname) form.append('serviceCname', settings.cname);
   if(settings.instances) form.append('serviceInstances', settings.instances);
   form.append(pathObj.name, fs.createReadStream(settings.tarPath));
@@ -123,7 +122,7 @@ function deployment(settings) {
         try{
           const progressState = JSON.parse(data);
           result = progressState;
-          if(progressState && progressState.message) return new Promise.reject(new Error(progressState.message));
+          if(progressState && progressState.message) return Promise.reject(new Error(progressState.message));
           if(progressState && progressState.deployProgress) bar.tick(progressState);
         } catch(err) {
           reject(err);
@@ -133,7 +132,6 @@ function deployment(settings) {
     });
   })
   .then(data => {
-    settings.serviceId = data.serviceId;
     settings.serviceName = data.serviceName;
     settings.serviceUrl = data.serviceUrl;
     settings.serviceCName = data.serviceCName;
