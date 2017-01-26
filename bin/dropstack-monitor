@@ -14,8 +14,8 @@ program
   .parse(process.argv);
 
 function monitor(name){
-  console.log(`Monitoring and statistics for ${name}`);
   stackSettings.load()
+  .then(settings => { console.log(`Monitoring and statistics for deployment ${chalk.green.underline(name)} | ${chalk.green.underline(settings.username)}`); return settings;})
   .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Login please')) : settings)
   .then(settings => fetch(`${DROPSTACK_BASE_URL}/stacks/${name || settings.serviceName}/monitor`, { headers: { Authorization: `Bearer ${settings.token}`, } }).then(response => response.json()))
   .then(data => Boolean(data.message) ? Promise.reject(new Error(data.message)) : data)

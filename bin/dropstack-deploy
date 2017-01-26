@@ -14,20 +14,19 @@ const ProgressBar = require('progress');
 const FormData = require('form-data');
 const credentials = require('../lib/credentials')();
 const stackSettings = require('../lib/settings')();
-process.on('SIGINT', () => process.exit(0));
 
 program
   .arguments('[folder]')
   .option('-l, --login', 'Force login')
   .option('-r, --reset', 'Reset login')
-  .option('-v, --variables <items>', 'Key=Value variables', (item, list) => { list.push(item); return list; }, [])
-  .option('-i, --instances <number>', 'Number of running instances')
-  .option('-c, --cname <string>', 'Set a canonical name (CNAME) (e.g. my.dropstack.run)')
+  .option('-a, --alias [name]', 'Alias name of deployment')
+  .option('-v, --variables [items]', 'Key=Value variables', (item, list) => { list.push(item); return list; }, [])
+  .option('-i, --instances [number]', 'Number of running instances for deployment')
   .parse(process.argv);
 
 if(!program.args.length) deploy(Object.assign(program.opts(), {folder: process.cwd()}));
 
-function deploy({folder, login, reset, variables, instances, cname, excludes}){
+function deploy({folder, login, reset, variables, instances, alias, excludes}){
   const args = path.resolve(folder);
   const pathObj = path.parse(args);
   const tarPath = path.join(os.tmpdir(), `${pathObj.name}.tar`);
@@ -40,7 +39,7 @@ function deploy({folder, login, reset, variables, instances, cname, excludes}){
       reset,
       login,
       instances,
-      cname,
+      alias,
     }));
 
   fstream.Reader({ path: args, type: 'Directory', follow: false, filter: x => tarFileFilter(x, excludes)})
@@ -49,8 +48,9 @@ function deploy({folder, login, reset, variables, instances, cname, excludes}){
     .pipe(dirDest);
 }
 
-function sync({tarPath, login, reset, variables, instances, cname}){
-  stackSettings.load({variables, tarPath, instances, cname})
+function sync({tarPath, login, reset, variables, instances, alias}){
+  stackSettings.load({variables, tarPath, instances, alias})
+  .then(settings => { console.log(`Deploy for ${chalk.green.underline(settings.alias || settings.serviceName || '...')} | ${chalk.green.underline(settings.username)}`); return settings;})
   .then(settings => credentials.inputEmail(login ? '' : settings.username).then(data => Object.assign(settings, data)))
   .then(settings => reset ? credentials.reset(settings).then(data => Promise.reject(data)) : Promise.resolve(settings))
   .then(settings => login ? credentials.inputPassword(settings.password).then(data => Object.assign(settings, data)) : Promise.resolve(settings))
@@ -101,7 +101,7 @@ function deployment(settings) {
     });
 
   if(settings.serviceName) form.append('serviceName', settings.serviceName);
-  if(settings.cname) form.append('serviceCname', settings.cname);
+  if(settings.alias) form.append('serviceAlias', settings.alias);
   if(settings.instances) form.append('serviceInstances', settings.instances);
   form.append(pathObj.name, fs.createReadStream(settings.tarPath));
 
@@ -131,6 +131,8 @@ function deployment(settings) {
     settings.serviceName = data.serviceName;
     settings.serviceUrl = data.serviceUrl;
     settings.serviceCName = data.serviceCName;
+    settings.serviceAlias = data.serviceAlias;
+    settings.serviceType = data.serviceType;
     copyPaste.copy(data.serviceUrl);
     return settings;
   });

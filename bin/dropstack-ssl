@@ -1,0 +1,39 @@
+#!/usr/bin/env node
+const DROPSTACK_BASE_URL = process.env.DROPSTACK_BASE_URL || `https://api.dropstack.run`;
+
+const fs = require('fs');
+const path = require('path');
+const program = require('commander');
+const chalk = require('chalk');
+const fetch = require('node-fetch');
+const stackSettings = require('../lib/settings')();
+
+program
+  .arguments('<name>')
+  .option('-c, --cert [file]', 'Reset login')
+  .option('-k, --key [file]', 'Reset login')
+  .option('-a, --ca [file]', 'Force login')
+  .action(x => ssl({name: x, ca: program.ca, key: program.key, cert: program.cert}))
+  .parse(process.argv);
+
+function ssl(setup) {
+  const keyFile = fs.existsSync(setup.key) && fs.readFileSync(setup.key).toString();
+  const certFile = fs.existsSync(setup.cert) && fs.readFileSync(setup.cert).toString();
+  const caFile = fs.existsSync(setup.ca) && fs.readFileSync(setup.ca).toString();
+  if(!(keyFile && certFile && caFile)) console.error(chalk.red(`Invalid SSL content. Verify your Certificate, Key and CA file content please.`));
+
+  stackSettings.load()
+  .then(settings => { console.log(`Setup SSL for deployment ${chalk.green.underline(setup.name)} | ${chalk.green.underline(settings.username)}`); return settings;})
+  .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Login please')) : settings)
+  .then(settings => fetch(`${DROPSTACK_BASE_URL}/stacks/${setup.name || settings.serviceName}/ssl`, { method: 'POST', body: JSON.stringify({ssl_key: keyFile || '', ssl_cert: certFile || '', ssl_ca: caFile || ''}), headers: { Authorization: `Bearer ${settings.token}`, 'Content-Type': 'application/json' } }).then(response => response.json()))
+  .then(data => Boolean(data.message) ? Promise.reject(new Error(data.message)) : data)
+  .then(data => console.log(chalk.green(`SSL updated`)))
+  .catch(err => {
+    if(err.message === 'Login please'){
+      console.error(chalk.red(err.message));
+      process.exit(1);
+    }
+    console.error(chalk.red(`\nAn error occurred: ${chalk.gray(err.message)}`));
+    process.exit(1);
+  });
+}

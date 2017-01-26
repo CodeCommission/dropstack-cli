@@ -1,0 +1,34 @@
+#!/usr/bin/env node
+const DROPSTACK_BASE_URL = process.env.DROPSTACK_BASE_URL || `https://api.dropstack.run`;
+
+const fs = require('fs');
+const path = require('path');
+const program = require('commander');
+const chalk = require('chalk');
+const fetch = require('node-fetch');
+const stackSettings = require('../lib/settings')();
+
+program
+  .arguments('<name> <cname>')
+  .action((x, y) => cname({name: x, serviceCName: y}))
+  .parse(process.argv);
+
+function cname(setup) {
+  if(!(setup.serviceCName && setup.name)) console.error(chalk.red(`Invalid parameters.`));
+
+  stackSettings.load()
+  .then(settings => { console.log(`Setup CNAME ${chalk.green.underline(setup.serviceCName)} of deployment ${chalk.green.underline(setup.name)} | ${chalk.green.underline(settings.username)}`); return settings;})
+  .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Login please')) : settings)
+  .then(settings => fetch(`${DROPSTACK_BASE_URL}/stacks/${setup.name || settings.serviceName}/cname`, { method: 'POST', body: JSON.stringify({serviceCName: setup.serviceCName || ''}), headers: { Authorization: `Bearer ${settings.token}`, 'Content-Type': 'application/json' } }).then(response => response.json()).then(data => Object.assign(settings, data)))
+  .then(data => Boolean(data.message) ? Promise.reject(new Error(data.message)) : data)
+  .then(settings => stackSettings.save(settings))
+  .then(data => console.log(chalk.green(`CNAME updated`)))
+  .catch(err => {
+    if(err.message === 'Login please'){
+      console.error(chalk.red(err.message));
+      process.exit(1);
+    }
+    console.error(chalk.red(`\nAn error occurred: ${chalk.gray(err.message)}`));
+    process.exit(1);
+  });
+}

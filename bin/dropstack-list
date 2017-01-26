@@ -13,11 +13,13 @@ program.parse(process.argv);
 if(!program.args.length) list();
 
 function list(){
+
   stackSettings.load()
+  .then(settings => { console.log(`List of deployments for user ${chalk.green.underline(settings.username)}`); return settings;})
   .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Login please')) : settings)
   .then(settings => fetch(`${DROPSTACK_BASE_URL}/stacks`, { headers: { Authorization: `Bearer ${settings.token}`, } }).then(response => response.json()))
   .then(data => Boolean(data.message) ? Promise.reject(new Error(data.message)) : data)
-  .then(data => (data || []).map(x => `| ${x.serviceName} | ${x.serviceUrl} | ${x.serviceCName || '-'} |`))
+  .then(data => (data || []).map(x => `${chalk.gray(pad(7, x.serviceType.toUpperCase(),' '))}| ${chalk.green(pad(9, x.serviceAlias || x.serviceName, ' '))}| ${chalk.bold(pad(45, x.serviceCName || x.serviceUrl || '-', ' '))}`))
   .then(data => {
     if(data.length > 0) return data.map(x => console.log(x));
     console.log('Nothing deployed');
@@ -30,4 +32,8 @@ function list(){
     console.error(chalk.red(`\nAn error occurred: ${chalk.gray(err.message)}`));
     process.exit(1);
   });
+}
+
+function pad(width, string, padding) {
+  return (width <= string.length) ? string : pad(width, string + padding, padding)
 }

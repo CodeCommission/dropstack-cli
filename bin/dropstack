@@ -9,5 +9,7 @@ program
   .command('remove [name]', 'Remove a deployment')
   .command('logs [name]', 'StdOut/StdErr Log-Stream of deployment')
   .command('monitor [name]', 'Monitoring and statistics of deployment')
+  .command('ssl [name]', 'Manage SSL of deployment')
+  .command('cname [name] [cname]', 'Set a canonical name (CNAME RECORD) (e.g. my-app.dropstack.run)')
   .command('account', 'Display your account information')
   .parse(process.argv);

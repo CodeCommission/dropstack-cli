@@ -35,6 +35,7 @@ function account({token, username, password, login, reset, signout}) {
   }
 
   stackSettings.load({token, username, password, login, reset, signout})
+  .then(settings => { console.log(`Account information  ${username ? 'for ' + chalk.green.underline(username) : ''}`); return settings;})
   .then(settings => reset ? credentials.reset(settings).then(data => Promise.reject(data)) : Promise.resolve(settings))
   .then(settings => credentials.inputEmail(login ? '' : settings.username).then(data => Object.assign(settings, data)))
   .then(settings => !settings.token ? credentials.inputPassword(settings.password).then(data => Object.assign(settings, data)) : Promise.resolve(settings))
