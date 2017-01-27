@@ -10,8 +10,6 @@ const credentials = require('../lib/credentials')();
 const stackSettings = require('../lib/settings')();
 
 program
-  .option('-u, --username <username>', 'User email address')
-  .option('-p, --password <password>', 'User\'s password')
   .option('-s, --signout', 'Sign out')
   .option('-l, --login', 'Force login')
   .option('-r, --reset', 'Reset login')
@@ -34,8 +32,8 @@ function account({token, username, password, login, reset, signout}) {
       });
   }
 
-  stackSettings.load({token, username, password, login, reset, signout})
-  .then(settings => { console.log(`Account information  ${username ? 'for ' + chalk.green.underline(username) : ''}`); return settings;})
+  stackSettings.load({login, reset, signout})
+  .then(settings => { console.log(chalk.green(`Account information ${settings.username ? 'for ' + chalk.green.underline(settings.username) : ''}`)); return settings;})
   .then(settings => reset ? credentials.reset(settings).then(data => Promise.reject(data)) : Promise.resolve(settings))
   .then(settings => credentials.inputEmail(login ? '' : settings.username).then(data => Object.assign(settings, data)))
   .then(settings => !settings.token ? credentials.inputPassword(settings.password).then(data => Object.assign(settings, data)) : Promise.resolve(settings))
@@ -45,16 +43,12 @@ function account({token, username, password, login, reset, signout}) {
     return settings;
   })
   .then(settings => stackSettings.save(settings))
-  .then(settings => {
-    console.log(`Account information for ${settings.username}`);
-    return settings;
-  })
   .then(settings => fetch(`${DROPSTACK_BASE_URL}/account`, { headers: { Authorization: `Bearer ${settings.token}`, } }).then(response => response.json()).then(data => Object.assign(data, settings)))
   .then(data => Boolean(data.message) ? Promise.reject(new Error(data.message)) : data)
   .then(data => {
-    console.log(`EMail: ${data.email}`);
-    console.log(`Plan: ${data.metadata.plan || '-'}`);
-    if(token) console.log(`JWT: ${data.token}`);
+    console.log(chalk.gray(`EMail: ${data.email}`));
+    console.log(chalk.gray(`Plan: ${data.metadata.plan || '-'}`));
+    if(token) console.log(chalk.gray(`JWT: ${data.token}`));
     process.exit(0);
   })
   .catch(err => {

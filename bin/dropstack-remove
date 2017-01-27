@@ -38,7 +38,7 @@ function remove(name){
     .then(() => stackSettings.remove())
     .catch(err => {
       if(err.message === 'Login please'){
-        console.error(chalk.red(err.message));
+        console.error(chalk.red(`Credentials not found. Use ${chalk.bold('dropstack account')} to sign in.`));
         process.exit(1);
       }
       console.error(chalk.red(`\nAn error occurred: ${chalk.gray(err.message)}`));

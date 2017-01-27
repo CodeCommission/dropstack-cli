@@ -64,8 +64,8 @@ function sync({tarPath, login, reset, variables, instances, alias}){
   .then(settings => stackSettings.save(settings))
   .then(settings => {
     console.log(chalk.green('Deployment completed'), chalk.gray('Instance URL copied to clipboard.'));
-    console.log(`Stack-URL: ${chalk.bold(settings.serviceUrl)}`);
-    if(settings && settings.serviceCName && settings.serviceCName.replace('https://', '')) console.log(`Stack-CName: ${settings.serviceCName}`);
+    console.log(`Deploy URL: ${chalk.bold(settings.serviceUrl)}`);
+    if(settings && settings.serviceCName) console.log(`CNAME URL: ${settings.serviceCName}`);
   })
   .catch(err => {
     if(err.message === '"We\'ve just sent you an email to reset your password."') {
