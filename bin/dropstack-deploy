@@ -19,7 +19,7 @@ program
   .arguments('[folder]')
   .option('-l, --login', 'Force login')
   .option('-r, --reset', 'Reset login')
-  .option('-a, --alias [name]', 'Alias name of deployment')
+  .option('-a, --alias [name]', 'Set alias of deployment', '')
   .option('-v, --variables [items]', 'Key=Value variables', (item, list) => { list.push(item); return list; }, [])
   .option('-i, --instances [number]', 'Number of running instances for deployment')
   .parse(process.argv);
@@ -27,7 +27,6 @@ program
 if(!program.args.length) deploy(Object.assign(program.opts(), {folder: process.cwd()}));
 
 function deploy({folder, login, reset, variables, instances, alias, excludes}){
-  alias = alias();
   const args = path.resolve(folder);
   const pathObj = path.parse(args);
   const tarPath = path.join(os.tmpdir(), `${pathObj.name}.tar`);
