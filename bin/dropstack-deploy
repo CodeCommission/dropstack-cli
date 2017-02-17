@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-const DROPSTACK_BASE_URL = process.env.DROPSTACK_BASE_URL || `https://api.dropstack.run`;
-
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -13,7 +11,7 @@ const copyPaste = require('copy-paste');
 const ProgressBar = require('progress');
 const FormData = require('form-data');
 const credentials = require('../lib/credentials')();
-const stackSettings = require('../lib/settings')();
+const configuration = require('../lib/settings')();
 
 program
   .arguments('[folder]')
@@ -24,14 +22,15 @@ program
   .option('-i, --instances [number]', 'Number of running instances for deployment')
   .parse(process.argv);
 
-if(!program.args.length) deploy(Object.assign(program.opts(), {folder: process.cwd()}));
+deploy(Object.assign(program.opts(), {folder: program.args.length === 0 ? process.cwd() : program.args[0] }));
 
-function deploy({folder, login, reset, variables, instances, alias, excludes}){
+function deploy({folder, login, reset, variables, instances, alias}){
   const args = path.resolve(folder);
   const pathObj = path.parse(args);
   const tarPath = path.join(os.tmpdir(), `${pathObj.name}.tar`);
   const dirDest = fs.createWriteStream(tarPath);
-  const packer = tar.Pack({ noProprietary: true, fromBase: true })
+  const packer = tar
+    .Pack({ noProprietary: true, fromBase: true })
     .on('error', err => console.error(chalk.red(`An error occurred: ${chalk.gray(err.message)}`)))
     .on('end', () => sync({
       tarPath,
@@ -42,15 +41,20 @@ function deploy({folder, login, reset, variables, instances, alias, excludes}){
       alias,
     }));
 
-  fstream.Reader({ path: args, type: 'Directory', follow: false, filter: x => tarFileFilter(x, excludes)})
-    .on('error', err => console.error(chalk.red(`An error occurred: ${chalk.gray(err.message)}`)))
-    .pipe(packer)
-    .pipe(dirDest);
+  configuration
+  .load()
+  .then(settings => {
+    fstream.Reader({ path: args, type: 'Directory', follow: false, filter: x => tarFileFilter(x, settings.excludes)})
+      .on('error', err => console.error(chalk.red(`An error occurred: ${chalk.gray(err.message)}`)))
+      .pipe(packer)
+      .pipe(dirDest);
+  });
 }
 
 function sync({tarPath, login, reset, variables, instances, alias}){
-  stackSettings.load({variables, tarPath, instances, alias})
-  .then(settings => { console.log(`Deploy for ${chalk.green.underline(settings.alias || settings.serviceName || '...')} | ${chalk.green.underline(settings.username)}`); return settings;})
+  configuration
+  .load({variables, tarPath, instances, alias})
+  .then(settings => { console.log(`Deploy for ${chalk.green.underline(settings.alias || settings.name || '-')} | ${chalk.green.underline(settings.username || '-')} | ${chalk.green.underline(settings.url || '-')}`); return settings;})
   .then(settings => credentials.inputEmail(login ? '' : settings.username).then(data => Object.assign(settings, data)))
   .then(settings => reset ? credentials.reset(settings).then(data => Promise.reject(data)) : Promise.resolve(settings))
   .then(settings => login ? credentials.inputPassword(settings.password).then(data => Object.assign(settings, data)) : Promise.resolve(settings))
@@ -59,13 +63,13 @@ function sync({tarPath, login, reset, variables, instances, alias}){
     if(settings.message) return Promise.reject(new Error(settings.message));
     return settings;
   })
-  .then(settings => stackSettings.save(settings))
+  .then(settings => configuration.save(settings))
   .then(settings => deployment(settings))
-  .then(settings => stackSettings.save(settings))
+  .then(settings => configuration.save(settings))
   .then(settings => {
-    console.log(chalk.green('Deployment completed'), chalk.gray('Instance URL copied to clipboard.'));
+    console.log(chalk.green('\nDeployment completed'), chalk.gray('Instance URL copied to clipboard.'));
     console.log(`Deploy URL: ${chalk.bold(settings.serviceUrl)}`);
-    if(settings && settings.serviceCName) console.log(`CNAME URL: ${settings.serviceCName}`);
+    if(settings && settings.serviceAlias) console.log(`Alias URL: ${settings.serviceAlias}`);
   })
   .catch(err => {
     if(err.message === '"We\'ve just sent you an email to reset your password."') {
@@ -80,7 +84,11 @@ function sync({tarPath, login, reset, variables, instances, alias}){
       console.error(chalk.red(`Login failed`))
       return process.exit(1);
     }
-
+    if(err.message.indexOf('building error') !== -1) {
+      console.error(chalk.red(`\n${err.message}`))
+      console.error(chalk.red(`Verify your Dockerfile, please!`))
+      return process.exit(1);
+    }
     console.error(chalk.red(`\nAn error occurred ${chalk.gray(err.message)}`));
     process.exit(1);
   });
@@ -91,21 +99,13 @@ function deployment(settings) {
   const form = new FormData();
   const bar = new ProgressBar('[:current/:total :deployProgress] [:bar] :percent :elapseds', { total: 11, width: 24 });
 
-  settings
-    .variables
-    .forEach(x => {
-      const item = x.split('=');
-      if(!item[0]) return;
-
-      form.append(item[0], item[1]);
-    });
-
-  if(settings.serviceName) form.append('serviceName', settings.serviceName);
+  if(settings.name) form.append('serviceName', settings.name);
   if(settings.alias) form.append('serviceAlias', settings.alias);
   if(settings.instances) form.append('serviceInstances', settings.instances);
+  if(settings.variables) form.append('serviceVariables', settings.variables.join(','));
   form.append(pathObj.name, fs.createReadStream(settings.tarPath));
 
-  return fetch(`${DROPSTACK_BASE_URL}/stacks/${pathObj.name}`, {
+  return fetch(`${settings.url}/deploys/${settings.name || ''}`, {
     method: 'POST',
     body: form,
     headers: { Authorization: `Bearer ${settings.token}`, }
@@ -115,29 +115,29 @@ function deployment(settings) {
       let result = undefined;
       response.body.on('end', () => resolve(result));
       response.body.on('data', data => {
-        try{
+        try {
           const progressState = JSON.parse(data);
           result = progressState;
-          if(progressState && progressState.message) return Promise.reject(new Error(progressState.message));
+          if(progressState && progressState.message) return reject(new Error(`${progressState.deployProgress}: ${progressState.message}`));
           if(progressState && progressState.deployProgress) bar.tick(progressState);
         } catch(err) {
           reject(err);
         }
       });
-
     });
   })
   .then(data => {
-    settings.serviceName = data.serviceName;
+    settings.name = data.serviceName;
     settings.serviceUrl = data.serviceUrl;
-    settings.serviceCName = data.serviceCName;
-    settings.serviceAlias = data.serviceAlias;
-    settings.serviceType = data.serviceType;
-    copyPaste.copy(data.serviceUrl);
+    settings.alias = data.serviceAlias;
+    settings.type = data.serviceType;
+    settings.instances = data.serviceInstances;
+    settings.variables = data.serviceVariables;
+    copyPaste.copy(data.serviceUrl || '');
     return settings;
   });
 }
 
 function tarFileFilter(entry, excludes = []) {
-  return entry.basename !== 'node_modules' && entry.basename !== 'npm-debug.log' && entry.basename !== '.git';
+  return excludes.every(x => x !== entry.basename) && entry.basename !== 'node_modules' && entry.basename !== 'npm-debug.log' && entry.basename !== '.git';
 }

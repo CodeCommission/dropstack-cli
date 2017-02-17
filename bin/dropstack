@@ -4,12 +4,12 @@ const manifest = require('../package.json');
 
 program
   .version(`${manifest.name} v${manifest.version}`)
+  .command('login [url]', 'Account information')
   .command('deploy [folder]', 'Performs a deployment (default)', {isDefault: true})
   .command('list', 'List deployments')
   .command('remove [name]', 'Remove a deployment')
-  .command('logs [name]', 'StdOut/StdErr Log-Stream of deployment')
-  .command('monitor [name]', 'Monitoring and statistics of deployment')
-  .command('ssl [name]', 'Manage SSL of deployment')
-  .command('cname [name] [cname]', 'Set a canonical name (CNAME RECORD) (e.g. my-app.dropstack.run)')
-  .command('account', 'Display your account information')
+  // .command('logs [name]', 'StdOut/StdErr Log-Stream of deployment')
+  // .command('monitor [name]', 'Monitoring and statistics of deployment')
+  // .command('ssl [name]', 'Manage SSL of deployment')
+  // .command('cname [name] [cname]', 'Set a canonical name (CNAME RECORD) (e.g. my-app.dropstack.run)')
   .parse(process.argv);

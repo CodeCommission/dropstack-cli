@@ -1,27 +1,27 @@
 #!/usr/bin/env node
-const DROPSTACK_BASE_URL = process.env.DROPSTACK_BASE_URL || `https://api.dropstack.run`;
-
 const fs = require('fs');
 const path = require('path');
 const program = require('commander');
 const fetch = require('node-fetch');
 const chalk = require('chalk');
 const credentials = require('../lib/credentials')();
-const stackSettings = require('../lib/settings')();
+const configuration = require('../lib/settings')();
 
 program
+  .arguments('<url>')
   .option('-s, --signout', 'Sign out')
   .option('-l, --login', 'Force login')
-  .option('-r, --reset', 'Reset login')
+  // .option('-r, --reset', 'Reset login')
   .option('-t, --token', 'Display current user JWT token')
+  .action(url => account(Object.assign({url: url}, program)))
   .parse(process.argv);
 
 if(!program.args.length) account(program.opts());
 
-function account({token, username, password, login, reset, signout}) {
+function account({url, token, username, password, login, reset, signout}) {
   if(signout) {
-    return stackSettings.removeGlobalFile()
-      .then(() => stackSettings.removeProjectFile())
+    return configuration.removeGlobalFile()
+      .then(() => configuration.removeProjectFile())
       .then(() => {
         console.log(chalk.green(`signed out`));
         process.exit(0);
@@ -32,27 +32,30 @@ function account({token, username, password, login, reset, signout}) {
       });
   }
 
-  stackSettings.load({login, reset, signout})
-  .then(settings => { console.log(chalk.green(`Account information ${settings.username ? 'for ' + chalk.green.underline(settings.username) : ''}`)); return settings;})
+  configuration
+  .load({url, login, reset, signout})
+  .then(settings => configuration.save(Object.assign(settings, {url: url})))
+  .then(settings => { console.log(chalk.green(`Account information for ${chalk.green.underline(settings.username || '-')} on ${settings.url}`)); return settings;})
   .then(settings => reset ? credentials.reset(settings).then(data => Promise.reject(data)) : Promise.resolve(settings))
-  .then(settings => credentials.inputEmail(login ? '' : settings.username).then(data => Object.assign(settings, data)))
+  .then(settings => login ? Object.assign(settings, {token: ''}) : Promise.resolve(settings))
+  .then(settings => credentials.inputEmail(settings.username).then(data => Object.assign(settings, data)))
   .then(settings => !settings.token ? credentials.inputPassword(settings.password).then(data => Object.assign(settings, data)) : Promise.resolve(settings))
-  .then(settings => !settings.token ? credentials.login(settings).catch(() => credentials.signup(settings)).then(data => Object.assign(settings, data)) : Promise.resolve(settings))
+  .then(settings => !settings.token ? credentials.login(settings).catch(() => !login ? credentials.signup(settings) : Promise.resolve(settings)).then(data => Object.assign(settings, data)) : Promise.resolve(settings))
   .then(settings => {
     if(settings.message) return Promise.reject(new Error(settings.message));
     return settings;
   })
-  .then(settings => stackSettings.save(settings))
-  .then(settings => fetch(`${DROPSTACK_BASE_URL}/account`, { headers: { Authorization: `Bearer ${settings.token}`, } }).then(response => response.json()).then(data => Object.assign(data, settings)))
+  .then(settings => configuration.save(settings))
+  .then(settings => fetch(`${settings.url}/auth/account`, { headers: { Authorization: `Bearer ${settings.token}`, } }).then(response => response.json()).then(data => Object.assign(data, settings)))
   .then(data => Boolean(data.message) ? Promise.reject(new Error(data.message)) : data)
   .then(data => {
-    console.log(chalk.gray(`EMail: ${data.email}`));
-    console.log(chalk.gray(`Plan: ${data.metadata.plan || '-'}`));
+    console.log(chalk.gray(`User: ${data.id}`));
+    console.log(chalk.gray(`Profile: ${JSON.stringify(data.metadata, null, 2)}`));
     if(token) console.log(chalk.gray(`JWT: ${data.token}`));
     process.exit(0);
   })
   .catch(err => {
-    if(err.message === '"We\'ve just sent you an email to reset your password."') {
+    if(err.message === '"We\'ve just sent you an email to reset your password"') {
       console.log(chalk.red(err.message));
       return process.exit(0);
     }
@@ -60,8 +63,8 @@ function account({token, username, password, login, reset, signout}) {
       console.log(chalk.yellow('aborted'));
       return process.exit(0);
     }
-    if(err.message === 'The user already exists.') {
-      console.error(chalk.red(`Login failed`));
+    if(err.message === 'The user already exists') {
+      console.error(chalk.red(`Sign in failed.`));
       return process.exit(1);
     }
 

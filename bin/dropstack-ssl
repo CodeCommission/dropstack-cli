@@ -1,12 +1,10 @@
 #!/usr/bin/env node
-const DROPSTACK_BASE_URL = process.env.DROPSTACK_BASE_URL || `https://api.dropstack.run`;
-
 const fs = require('fs');
 const path = require('path');
 const program = require('commander');
 const chalk = require('chalk');
 const fetch = require('node-fetch');
-const stackSettings = require('../lib/settings')();
+const configuration = require('../lib/settings')();
 
 program
   .arguments('<name>')
@@ -22,15 +20,16 @@ function ssl(setup) {
   const caFile = fs.existsSync(setup.ca) && fs.readFileSync(setup.ca).toString();
   if(!(keyFile && certFile && caFile)) console.error(chalk.red(`Invalid SSL content. Verify your Certificate, Key and CA file content please.`));
 
-  stackSettings.load()
+  configuration
+  .load()
   .then(settings => { console.log(`Setup SSL for deployment ${chalk.green.underline(setup.name)} | ${chalk.green.underline(settings.username)}`); return settings;})
-  .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Login please')) : settings)
-  .then(settings => fetch(`${DROPSTACK_BASE_URL}/stacks/${setup.name || settings.serviceName}/ssl`, { method: 'POST', body: JSON.stringify({ssl_key: keyFile || '', ssl_cert: certFile || '', ssl_ca: caFile || ''}), headers: { Authorization: `Bearer ${settings.token}`, 'Content-Type': 'application/json' } }).then(response => response.json()))
+  .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed. Use `dropstack login` to log in with your credentials.')) : settings)
+  .then(settings => fetch(`${settings.url}/deploys/${setup.name || settings.serviceName}/ssl`, { method: 'POST', body: JSON.stringify({ssl_key: keyFile || '', ssl_cert: certFile || '', ssl_ca: caFile || ''}), headers: { Authorization: `Bearer ${settings.token}`, 'Content-Type': 'application/json' } }).then(response => response.json()))
   .then(data => Boolean(data.message) ? Promise.reject(new Error(data.message)) : data)
   .then(data => console.log(chalk.green(`SSL updated`)))
   .catch(err => {
-    if(err.message === 'Login please'){
-      console.error(chalk.red(`Credentials not found. Use ${chalk.bold('dropstack account')} to sign in.`));
+    if(err.message === 'Sign in failed. Use `dropstack login` to log in with your credentials.'){
+      console.error(chalk.red(`Credentials not found. Use ${chalk.bold('dropstack login')} to verifiy your credentials.`));
       process.exit(1);
     }
     console.error(chalk.red(`\nAn error occurred: ${chalk.gray(err.message)}`));

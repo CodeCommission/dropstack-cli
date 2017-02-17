@@ -1,6 +1,6 @@
-# dropstack CLI
+# DROPSTACK-CLI
 
-> you ship it - we run it!
+> You ship it - we run it! A CLI to simplify continuous deployments via Web-Service API and Docker Swarm with integrated SSL, DNS-Server and JWT authentification.
 
 ## Usage
 
@@ -44,11 +44,11 @@ index.html  bundle.js
 $ my-spa-app/ dropstack
 ```
 
-## What dropstack is?
+## What DROPSTACK is?
 
-DropStack takes your Docker-, NodeJS- or static Website-Applications and Services to the cloud with ease, speed and reliability. In practical terms, any directory that contains a package.json or Dockerfile can be transported to the cloud with the single CLI command: `dropstack`.
+DROPSTACK CLI takes any of your Docker-, NodeJS- or static Web-Sites/Services to the DROPSTACK-Server with ease, speed and reliability. In practical terms, any directory that contains a package.json or Dockerfile can be transported to the DROPSTACK-Server with the single CLI command: `dropstack`.
 
-First time you __deploy your project__, dropstack will provide you with a unique __project specific URL__ (e.g. `erkgfjtrna.dropstack.run`). When it's time to take your deployment to production, you simply pick an appropriate alias (a __custom domain__).
+First time you __deploy your project__, dropstack will provide you with a unique __project specific URL__ (e.g. `erkgfjtrna.domain.local`). When it's time to take your deployment to production, you simply pick an appropriate alias (a __custom domain__).
 
 ## Get Started
 
@@ -79,10 +79,32 @@ The first time you run `dropstack`, it'll ask for your email address in order to
 ## Features
 
 * doesn't require you to install certain applications in order to get started
-* Traffic is only served over secure SSL connections
-* Custom domains and own SSL Certificate support
 * No need to install git or source control
 * No need to setup keys/tokens
 * No complicated cloud provider setup or registration
 * No setup of applications or projects
 * Unlimited
+
+## ASAP
+
+* Custom domain names
+* Custom SSL certificates
+* Traffic is only served over secure SSL connections
+* Display Logs as stream, monitoring and statistics
+
+## Contributors
+Check them out [here](https://github.com/MikeBild/dropstack-cli/graphs/contributors)
+
+## Issue Reporting
+
+If you have found a bug or if you have a feature request, please report them at this repository issues section. Please do not report security vulnerabilities on the public [GitHub issue tracker](https://github.com/MikeBild/dropstack-cli/issues).
+
+## License
+
+This project is licensed under the MIT license. See the [LICENSE](LICENSE) file for more info.
+
+## Thanks
+
+You like this GraphQL server and you want to see what coming next? Follow me on Twitter [`@mikebild`](https://twitter.com/mikebild).
+
+Enjoy!

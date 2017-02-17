@@ -1,12 +1,10 @@
 #!/usr/bin/env node
-const DROPSTACK_BASE_URL = process.env.DROPSTACK_BASE_URL || `https://api.dropstack.run`;
-
 const fs = require('fs');
 const path = require('path');
 const program = require('commander');
 const chalk = require('chalk');
 const fetch = require('node-fetch');
-const stackSettings = require('../lib/settings')();
+const configuration = require('../lib/settings')();
 
 program
   .arguments('<name>')
@@ -14,15 +12,16 @@ program
   .parse(process.argv);
 
 function monitor(name){
-  stackSettings.load()
+  configuration
+  .load()
   .then(settings => { console.log(`Monitoring and statistics for deployment ${chalk.green.underline(name)} | ${chalk.green.underline(settings.username)}`); return settings;})
-  .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Login please')) : settings)
-  .then(settings => fetch(`${DROPSTACK_BASE_URL}/stacks/${name || settings.serviceName}/monitor`, { headers: { Authorization: `Bearer ${settings.token}`, } }).then(response => response.json()))
+  .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed. Use `dropstack login` to log in with your credentials.')) : settings)
+  .then(settings => fetch(`${settings.url}/deploys/${name || settings.serviceName}/monitor`, { headers: { Authorization: `Bearer ${settings.token}`, } }).then(response => response.json()))
   .then(data => Boolean(data.message) ? Promise.reject(new Error(data.message)) : data)
   .then(data => console.log(`| Requests: ${data.count || 0} | Bytes in: ${data.inBytes || 0} | Bytes out: ${data.outBytes || 0} |`))
   .catch(err => {
-    if(err.message === 'Login please'){
-      console.error(chalk.red(`Credentials not found. Use ${chalk.bold('dropstack account')} to sign in.`));
+    if(err.message === 'Sign in failed. Use `dropstack login` to log in with your credentials.'){
+      console.error(chalk.red(`Credentials not found. Use ${chalk.bold('dropstack login')} to verifiy your credentials.`));
       process.exit(1);
     }
     console.error(chalk.red(`\nAn error occurred: ${chalk.gray(err.message)}`));
