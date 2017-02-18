@@ -23,6 +23,8 @@ function log({name, follow}) {
   .then(settings => fetch(`${settings.url}/deploys/${name || settings.serviceName}/logs?${follow ? 'follow='+follow : ''}`, { headers: { Authorization: `Bearer ${settings.token}`, } }))
   .then(response => {
     return new Promise((resolve, reject) => {
+      if(response.status >= 400) reject(new Error(`Response error: ${response.statusText}`));
+
       response.body.on('end', () => resolve());
       response.body.on('data', data => {
         const msg = JSON.parse(data);

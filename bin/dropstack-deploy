@@ -67,7 +67,7 @@ function sync({tarPath, login, reset, variables, instances, alias}){
   .then(settings => deployment(settings))
   .then(settings => configuration.save(settings))
   .then(settings => {
-    console.log(chalk.green('\nDeployment completed'), chalk.gray('Instance URL copied to clipboard.'));
+    console.log(chalk.green('\nDeployment completed'), chalk.gray('URL copied to clipboard.'));
     console.log(`Deploy URL: ${chalk.bold(settings.serviceUrl)}`);
     if(settings && settings.serviceAlias) console.log(`Alias URL: ${settings.serviceAlias}`);
   })
@@ -112,6 +112,8 @@ function deployment(settings) {
   })
   .then(response => {
     return new Promise((resolve, reject) => {
+      if(response.status >= 400) reject(new Error(`Response error: ${response.statusText}`));
+
       let result = undefined;
       response.body.on('end', () => resolve(result));
       response.body.on('data', data => {

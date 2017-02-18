@@ -16,7 +16,9 @@ function monitor(name){
   .load()
   .then(settings => { console.log(`Monitoring and statistics for deployment ${chalk.green.underline(name)} | ${chalk.green.underline(settings.username)}`); return settings;})
   .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed. Use `dropstack login` to log in with your credentials.')) : settings)
-  .then(settings => fetch(`${settings.url}/deploys/${name || settings.serviceName}/monitor`, { headers: { Authorization: `Bearer ${settings.token}`, } }).then(response => response.json()))
+  .then(settings => fetch(`${settings.url}/deploys/${name || settings.serviceName}/monitor`, { headers: { Authorization: `Bearer ${settings.token}`, } })
+    .then(response => response.status >= 400 ? Promise.reject(new Error(`Response error: ${response.statusText}`)) : response)
+    .then(response => response.json()))
   .then(data => Boolean(data.message) ? Promise.reject(new Error(data.message)) : data)
   .then(data => console.log(`| Requests: ${data.count || 0} | Bytes in: ${data.inBytes || 0} | Bytes out: ${data.outBytes || 0} |`))
   .catch(err => {

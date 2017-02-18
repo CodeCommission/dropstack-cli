@@ -46,7 +46,10 @@ function account({url, token, username, password, login, reset, signout}) {
     return settings;
   })
   .then(settings => configuration.save(settings))
-  .then(settings => fetch(`${settings.url}/auth/account`, { headers: { Authorization: `Bearer ${settings.token}`, } }).then(response => response.json()).then(data => Object.assign(data, settings)))
+  .then(settings => fetch(`${settings.url}/auth/account`, { headers: { Authorization: `Bearer ${settings.token}`, } })
+    .then(response => response.status >= 400 ? Promise.reject(new Error(`Response error: ${response.statusText}`)) : response)
+    .then(response => response.json())
+    .then(data => Object.assign(data, settings)))
   .then(data => Boolean(data.message) ? Promise.reject(new Error(data.message)) : data)
   .then(data => {
     console.log(chalk.gray(`User: ${data.id}`));

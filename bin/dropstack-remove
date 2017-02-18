@@ -21,6 +21,8 @@ function remove(name){
   .then(settings => fetch(`${settings.url}/deploys/${name || settings.serviceName}`, { method: 'DELETE', headers: { Authorization: `Bearer ${settings.token}`} }))
   .then(response => {
     return new Promise((resolve, reject) => {
+      if(response.status >= 400) reject(new Error(`Response error: ${response.statusText}`));
+
       let result = undefined;
       response.body.on('end', () => resolve(result));
       response.body.on('data', data => {

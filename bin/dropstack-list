@@ -15,7 +15,9 @@ function list(){
   .load()
   .then(settings => { console.log(`List of deployments for user ${chalk.green.underline(settings.username)}`); return settings;})
   .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed. Use `dropstack login` to log in with your credentials.')) : settings)
-  .then(settings => fetch(`${settings.url}/deploys`, { headers: { Authorization: `Bearer ${settings.token}`, } }).then(response => response.json()))
+  .then(settings => fetch(`${settings.url}/deploys`, { headers: { Authorization: `Bearer ${settings.token}`, } })
+    .then(response => response.status >= 400 ? Promise.reject(new Error(`Response error: ${response.statusText}`)) : response)
+    .then(response => response.json()))
   .then(data => Boolean(data.message) ? Promise.reject(new Error(data.message)) : data)
   .then(data => (data || []).map(x => `${chalk.gray(pad(7, x.serviceType.toUpperCase(),' '))} | ${chalk.green(pad(9, x.serviceName, ' '))} | ${chalk.bold(pad(45,  x.serviceUrl || '-', ' '))}`))
   .then(data => {
