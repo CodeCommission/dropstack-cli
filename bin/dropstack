@@ -11,5 +11,5 @@ program
   // .command('logs [name]', 'StdOut/StdErr Log-Stream of deployment')
   // .command('monitor [name]', 'Monitoring and statistics of deployment')
   // .command('ssl [name]', 'Manage SSL of deployment')
-  // .command('cname [name] [cname]', 'Set a canonical name (CNAME RECORD) (e.g. my-app.dropstack.run)')
+  // .command('cname [name] [cname]', 'Set a canonical name (CNAME RECORD) (e.g. my-app.domain.com)')
   .parse(process.argv);
