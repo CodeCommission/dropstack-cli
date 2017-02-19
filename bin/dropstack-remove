@@ -9,10 +9,11 @@ const configuration = require('../lib/settings')();
 
 program
   .arguments('<name>')
-  .action(name => remove(name))
+  .option('-f, --force', 'Remove local configuration')
+  .action(name => remove(name, program.force))
   .parse(process.argv);
 
-function remove(name){
+function remove(name, force){
   const bar = new ProgressBar('[:current/:total :destroyProgress] [:bar] :percent :elapseds', { total: 4, width: 24 });
   configuration
   .load()
@@ -35,9 +36,8 @@ function remove(name){
     });
   })
   .then(data => console.log(`Stack ${data.serviceName} removed`))
-  .then(() => configuration.remove())
+  .then(() => force ? configuration.remove() : Promise.resolve())
   .catch(err => {
-    console.log(err)
     if(err.message === 'Sign in failed. Use `dropstack login` to log in with your credentials.'){
       console.error(chalk.red(`Credentials not found. Use ${chalk.bold('dropstack login')} to verifiy your credentials.`));
       process.exit(1);

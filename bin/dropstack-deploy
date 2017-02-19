@@ -69,7 +69,7 @@ function sync({tarPath, login, reset, variables, instances, alias}){
   .then(settings => {
     console.log(chalk.green('\nDeployment completed'), chalk.gray('URL copied to clipboard.'));
     console.log(`Deploy URL: ${chalk.bold(settings.serviceUrl)}`);
-    if(settings && settings.serviceAlias) console.log(`Alias URL: ${settings.serviceAlias}`);
+    if(settings && settings.alias) console.log(`Alias URL: ${settings.alias}`);
   })
   .catch(err => {
     if(err.message === '"We\'ve just sent you an email to reset your password."') {
@@ -135,7 +135,7 @@ function deployment(settings) {
     settings.type = data.serviceType;
     settings.instances = data.serviceInstances;
     settings.variables = data.serviceVariables;
-    copyPaste.copy(data.serviceUrl || '');
+    copyPaste.copy(data.serviceAlias || data.serviceUrl || '');
     return settings;
   });
 }

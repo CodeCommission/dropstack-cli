@@ -30,7 +30,7 @@ function ssl(setup) {
   .then(data => {
     console.log(chalk.green(`SSL certificate for ${data.serviceAlias || data.serviceName} updated.`));
     console.log(chalk.gray('URL copied to clipboard.'));
-    copyPaste.copy(`https://${data.serviceUrl || ''}`);
+    copyPaste.copy(`https://${data.serviceAlias || data.serviceUrl || ''}`);
   })
   .catch(err => {
     if(err.message === 'Sign in failed. Use `dropstack login` to log in with your credentials.'){

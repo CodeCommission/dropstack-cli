@@ -11,7 +11,6 @@ program
   .arguments('<url>')
   .option('-s, --signout', 'Sign out')
   .option('-l, --login', 'Force login')
-  // .option('-r, --reset', 'Reset login')
   .option('-t, --token', 'Display current user JWT token')
   .action(url => account(Object.assign({url: url}, program)))
   .parse(process.argv);
@@ -21,9 +20,8 @@ if(!program.args.length) account(program.opts());
 function account({url, token, username, password, login, reset, signout}) {
   if(signout) {
     return configuration.removeGlobalFile()
-      .then(() => configuration.removeProjectFile())
       .then(() => {
-        console.log(chalk.green(`signed out`));
+        console.log(chalk.green(`Signed out`));
         process.exit(0);
       })
       .catch(err => {

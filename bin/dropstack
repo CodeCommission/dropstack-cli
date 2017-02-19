@@ -5,9 +5,9 @@ const manifest = require('../package.json');
 program
   .version(`${manifest.name} v${manifest.version}`)
   .command('login [url]', 'Account information')
-  .command('deploy [folder]', 'Performs a deployment (default)', {isDefault: true})
-  .command('list', 'List deployments')
-  .command('remove [name]', 'Remove a deployment')
+  .command('deploy [folder]', 'Performs a deployment')
+  .command('list', 'List deployments').alias('ls')
+  .command('remove [name]', 'Remove a deployment').alias('rm')
   .command('ssl [name]', 'Manage SSL of deployment')
   // .command('logs [name]', 'StdOut/StdErr Log-Stream of deployment')
   // .command('monitor [name]', 'Monitoring and statistics of deployment')
