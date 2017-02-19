@@ -1,6 +1,6 @@
 # DROPSTACK-CLI
 
-> You ship it - we run it! A CLI to simplify continuous deployments via Web-Service API and Docker Swarm with integrated SSL, DNS-Server and JWT authentification.
+> A CLI to simplify continuous deployments via Web-Service API and Docker Swarm with integrated SSL, DNS-Server and JWT authentification.
 
 ## Usage
 
@@ -14,34 +14,34 @@ __Help__
 $ dropstack --help
 ```
 
-Just enter `dropstack` in the folder you want to deploy.
+Just enter `dropstack deploy` in the folder you want to deploy.
 
 __Docker__
 ```bash
 $ my-go-app/ ls
 Dockerfile  server.go
-$ my-go-app/ dropstack
+$ my-go-app/ dropstack deploy
 ```
 
 __Node.JS__
 ```bash
 $ my-nodejs-api/ ls
 package.json  index.js
-$ my-nodejs-api/ dropstack
+$ my-nodejs-api/ dropstack deploy
 ```
 
 __Static Websites__
 ```bash
 $ my-web-site/ ls
 index.html  logo.png
-$ my-web-site/ dropstack
+$ my-web-site/ dropstack deploy
 ```
 
 __Single Page Applications__
 ```bash
 $ my-spa-app/ ls
 index.html  bundle.js
-$ my-spa-app/ dropstack
+$ my-spa-app/ dropstack deploy
 ```
 
 ## What DROPSTACK is?
@@ -70,7 +70,7 @@ $ npm init
 __Step 4__ Run `dropstack` to deploy. Every time you run `dropstack` in the same folder, you make an updated redeploy. You might see files uploading, and then we show you the progress of the commands executed for deploying your application.
 
 ```bash
-$ dropstack
+$ dropstack deploy
 ```
 
 The first time you run `dropstack`, it'll ask for your email address in order to identify you. Simply click on the email you've received, and you'll be logged in automatically.
@@ -87,10 +87,7 @@ The first time you run `dropstack`, it'll ask for your email address in order to
 
 ## ASAP
 
-* Custom domain names
-* Custom SSL certificates
-* Traffic is only served over secure SSL connections
-* Display Logs as stream, monitoring and statistics
+* Display metrics as stream
 
 ## Contributors
 Check them out [here](https://github.com/MikeBild/dropstack-cli/graphs/contributors)
@@ -101,10 +98,10 @@ If you have found a bug or if you have a feature request, please report them at 
 
 ## License
 
-This project is licensed under the MIT license. See the [LICENSE](LICENSE) file for more info.
+This project is licensed under the MIT license. See the [LICENSE](LICENSE.md) file for more info.
 
 ## Thanks
 
-You like this GraphQL server and you want to see what coming next? Follow me on Twitter [`@mikebild`](https://twitter.com/mikebild).
+You like DROPSTACK and you want to see what coming next? Follow me on Twitter [`@mikebild`](https://twitter.com/mikebild).
 
 Enjoy!

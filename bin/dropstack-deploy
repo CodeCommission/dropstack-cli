@@ -141,5 +141,5 @@ function deployment(settings) {
 }
 
 function tarFileFilter(entry, excludes = []) {
-  return excludes.every(x => x !== entry.basename) && entry.basename !== 'node_modules' && entry.basename !== 'npm-debug.log' && entry.basename !== '.git';
+  return excludes.every(x => x !== entry.basename) && entry.basename !== 'node_modules' && entry.basename !== 'npm-debug.log' && entry.basename !== '.git' && entry.basename !== '.DS_Store';
 }
