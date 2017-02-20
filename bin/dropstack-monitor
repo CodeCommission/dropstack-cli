@@ -7,8 +7,8 @@ const fetch = require('node-fetch');
 const configuration = require('../lib/settings')();
 
 program
-  .arguments('<name>')
-  .action(x => monitor(x))
+  .arguments('[name]')
+  .action(name => monitor(name))
   .parse(process.argv);
 
 function monitor(name){

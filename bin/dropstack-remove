@@ -8,18 +8,20 @@ const ProgressBar = require('progress');
 const configuration = require('../lib/settings')();
 
 program
-  .arguments('<name>')
+  .arguments('[name]')
   .option('-f, --force', 'Remove local configuration')
-  .action(name => remove(name, program.force))
+  .action(name => remove({name: name, force: program.force}))
   .parse(process.argv);
 
-function remove(name, force){
+if(!program.args.length) remove(program.opts());
+
+function remove({name, force}){
   const bar = new ProgressBar('[:current/:total :destroyProgress] [:bar] :percent :elapseds', { total: 4, width: 24 });
   configuration
   .load()
-  .then(settings => { console.log(`Remove deployment ${chalk.red.underline(name || settings.serviceName)} | ${chalk.green.underline(settings.username)}`); return settings;})
+  .then(settings => { console.log(`Remove deployment ${chalk.red.underline(name || settings.name || '-')} for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`); return settings;})
   .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed. Use `dropstack login` to log in with your credentials.')) : settings)
-  .then(settings => fetch(`${settings.url}/deploys/${name || settings.serviceName}`, { method: 'DELETE', headers: { Authorization: `Bearer ${settings.token}`} }))
+  .then(settings => fetch(`${settings.url}/deploys/${name || settings.name}`, { method: 'DELETE', headers: { Authorization: `Bearer ${settings.token}`} }))
   .then(response => {
     return new Promise((resolve, reject) => {
       if(response.status >= 400) reject(new Error(`Response error: ${response.statusText}`));
@@ -35,7 +37,7 @@ function remove(name, force){
 
     });
   })
-  .then(data => console.log(`Stack ${data.serviceName} removed`))
+  .then(data => console.log(`Deployment ${chalk.red.bold(data.serviceName)} removed`))
   .then(() => force ? configuration.remove() : Promise.resolve())
   .catch(err => {
     if(err.message === 'Sign in failed. Use `dropstack login` to log in with your credentials.'){

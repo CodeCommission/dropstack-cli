@@ -8,7 +8,7 @@ const credentials = require('../lib/credentials')();
 const configuration = require('../lib/settings')();
 
 program
-  .arguments('<url>')
+  .arguments('[url]')
   .option('-s, --signout', 'Sign out')
   .option('-l, --login', 'Force login')
   .option('-t, --token', 'Display current user JWT token')
@@ -32,7 +32,7 @@ function account({url, token, username, password, login, reset, signout}) {
 
   configuration
   .load({url, login, reset, signout})
-  .then(settings => { console.log(chalk.green(`Account information for ${chalk.green.underline(settings.username || '-')} on ${settings.url}`)); return settings;})
+  .then(settings => { console.log(chalk.green(`Account information for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`)); return settings;})
   .then(settings => reset ? credentials.reset(settings).then(data => Promise.reject(data)) : Promise.resolve(settings))
   .then(settings => login ? Object.assign(settings, {token: ''}) : Promise.resolve(settings))
   .then(settings => credentials.inputEmail(settings.username).then(data => Object.assign(settings, data)))

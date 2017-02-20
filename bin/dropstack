@@ -8,7 +8,7 @@ program
   .command('deploy [folder]', 'Deploy')
   .command('list', 'List')
   .command('remove [name]', 'Remove')
-  .command('ssl [name]', 'Manage SSL')
+  .command('ssl <name>', 'Manage SSL')
   .command('logs [name]', 'StdOut/StdErr Log-Stream')
   .command('monitor [name]', 'Metric-Stream')
   .parse(process.argv);

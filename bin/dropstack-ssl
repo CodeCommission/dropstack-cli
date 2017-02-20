@@ -8,11 +8,13 @@ const copyPaste = require('copy-paste');
 const configuration = require('../lib/settings')();
 
 program
-  .arguments('<name>')
+  .arguments('[name]')
   .option('-c, --cert [file]', 'The SSL bundled certificate file')
   .option('-k, --key [file]', 'The SSL key file')
-  .action(x => ssl({name: x, key: program.key, cert: program.cert}))
+  .action(name => ssl({name: name, key: program.key, cert: program.cert}))
   .parse(process.argv);
+
+if(!program.args.length) ssl(program.opts());
 
 function ssl(setup) {
   const keyFile = fs.existsSync(setup.key) && fs.readFileSync(setup.key).toString();
@@ -21,9 +23,9 @@ function ssl(setup) {
 
   configuration
   .load()
-  .then(settings => { console.log(`Setup SSL for deployment ${chalk.green.underline(setup.name)} | ${chalk.green.underline(settings.username)}`); return settings;})
+  .then(settings => { console.log(`Setup SSL ${chalk.green.underline(setup.name || settings.name || '-')} for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`); return settings;})
   .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed. Use `dropstack login` to log in with your credentials.')) : settings)
-  .then(settings => fetch(`${settings.url}/deploys/${setup.name || settings.serviceName}/ssl`, { method: 'POST', body: JSON.stringify({ssl_key: keyFile || '', ssl_cert: certFile || ''}), headers: { Authorization: `Bearer ${settings.token}`, 'Content-Type': 'application/json' } })
+  .then(settings => fetch(`${settings.url}/deploys/${setup.name || settings.name}/ssl`, { method: 'POST', body: JSON.stringify({ssl_key: keyFile || '', ssl_cert: certFile || ''}), headers: { Authorization: `Bearer ${settings.token}`, 'Content-Type': 'application/json' } })
     .then(response => response.status >= 400 ? Promise.reject(new Error(`Response error: ${response.statusText}`)) : response)
     .then(response => response.json()))
   .then(data => Boolean(data.message) ? Promise.reject(new Error(data.message)) : data)

@@ -13,7 +13,7 @@ if(!program.args.length) list();
 function list(){
   configuration
   .load()
-  .then(settings => { console.log(`List of deployments for user ${chalk.green.underline(settings.username)} | ${chalk.green.underline(settings.url || '-')}`); return settings;})
+  .then(settings => { console.log(`Deployments for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`); return settings;})
   .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed. Use `dropstack login` to log in with your credentials.')) : settings)
   .then(settings => fetch(`${settings.url}/deploys`, { headers: { Authorization: `Bearer ${settings.token}`, } })
     .then(response => response.status >= 400 ? Promise.reject(new Error(`Response error: ${response.statusText}`)) : response)

@@ -7,7 +7,7 @@ const fetch = require('node-fetch');
 const configuration = require('../lib/settings')();
 
 program
-  .arguments('<name>')
+  .arguments('[name]')
   .option('-f, --follow', 'Follow the log output.')
   .action(name => log({
     name: name,
