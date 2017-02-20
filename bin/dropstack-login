@@ -32,7 +32,6 @@ function account({url, token, username, password, login, reset, signout}) {
 
   configuration
   .load({url, login, reset, signout})
-  .then(settings => configuration.save(Object.assign(settings, {url: url})))
   .then(settings => { console.log(chalk.green(`Account information for ${chalk.green.underline(settings.username || '-')} on ${settings.url}`)); return settings;})
   .then(settings => reset ? credentials.reset(settings).then(data => Promise.reject(data)) : Promise.resolve(settings))
   .then(settings => login ? Object.assign(settings, {token: ''}) : Promise.resolve(settings))
