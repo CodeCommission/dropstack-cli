@@ -75,6 +75,11 @@ $ dropstack deploy
 
 The first time you run `dropstack`, it'll ask for your email address in order to identify you. Simply click on the email you've received, and you'll be logged in automatically.
 
+## Display and parsing the Log-Stream
+
+```
+dropstack logs cron-example | jq -R 'fromjson?|.message|fromjson'
+```
 
 ## Features
 
