@@ -4,7 +4,7 @@ const manifest = require('../package.json');
 
 program
   .version(`${manifest.name} v${manifest.version}`)
-  .command('login [url]', 'Information')
+  .command('login <url>', 'Information')
   .command('deploy [folder]', 'Deploy')
   .command('list', 'List')
   .command('remove [name]', 'Remove')

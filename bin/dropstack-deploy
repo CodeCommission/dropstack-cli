@@ -15,8 +15,7 @@ const configuration = require('../lib/settings')();
 
 program
   .arguments('[folder]')
-  .option('-l, --login', 'Force login')
-  .option('-r, --reset', 'Reset login')
+  .option('-t, --token [token]', 'Use JWT credentials')
   .option('-a, --alias [name]', 'Set alias of deployment', '')
   .option('-v, --variables [items]', 'Key=Value variables', (item, list) => { list.push(item); return list; }, [])
   .option('-i, --instances [number]', 'Number of running instances for deployment')
@@ -24,7 +23,7 @@ program
 
 deploy(Object.assign(program.opts(), {folder: program.args.length === 0 ? process.cwd() : program.args[0] }));
 
-function deploy({folder, login, reset, variables, instances, alias}){
+function deploy({folder, token, variables, instances, alias}){
   const args = path.resolve(folder);
   const pathObj = path.parse(args);
   const tarPath = path.join(os.tmpdir(), `${pathObj.name}.tar`);
@@ -35,8 +34,7 @@ function deploy({folder, login, reset, variables, instances, alias}){
     .on('end', () => sync({
       tarPath,
       variables,
-      reset,
-      login,
+      token,
       instances,
       alias,
     }));
@@ -51,14 +49,10 @@ function deploy({folder, login, reset, variables, instances, alias}){
   });
 }
 
-function sync({tarPath, login, reset, variables, instances, alias}){
+function sync({tarPath, token, variables, instances, alias}){
   configuration
-  .load({variables, tarPath, instances, alias})
+  .load({variables, tarPath, instances, token, alias})
   .then(settings => { console.log(`Deploying ${chalk.green.underline(settings.alias || settings.name || '-')} for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`); return settings;})
-  .then(settings => credentials.inputEmail(login ? '' : settings.username).then(data => Object.assign(settings, data)))
-  .then(settings => reset ? credentials.reset(settings).then(data => Promise.reject(data)) : Promise.resolve(settings))
-  .then(settings => login ? credentials.inputPassword(settings.password).then(data => Object.assign(settings, data)) : Promise.resolve(settings))
-  .then(settings => !settings.token ? credentials.login(settings).catch(() => credentials.signup(settings)).then(data => Object.assign(settings, data)) : Promise.resolve(settings))
   .then(settings => {
     if(settings.message) return Promise.reject(new Error(settings.message));
     return settings;
@@ -72,17 +66,9 @@ function sync({tarPath, login, reset, variables, instances, alias}){
     if(settings && settings.alias) console.log(`Alias URL: ${settings.alias}`);
   })
   .catch(err => {
-    if(err.message === '"We\'ve just sent you an email to reset your password."') {
-      console.log(chalk.red(err.message));
-      return process.exit(0);
-    }
     if(err.message === 'canceled') {
       console.log(chalk.yellow('aborted'));
       return process.exit(0);
-    }
-    if(err.message === 'The user already exists.') {
-      console.error(chalk.red(`Login failed`))
-      return process.exit(1);
     }
     if(err.message.indexOf('building error') !== -1) {
       console.error(chalk.red(`\n${err.message}`))
