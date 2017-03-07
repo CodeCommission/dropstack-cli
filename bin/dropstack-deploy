@@ -15,6 +15,7 @@ const configuration = require('../lib/settings')();
 
 program
   .arguments('[folder]')
+  .option('-u, --url [url]', 'Use JWT credentials')
   .option('-t, --token [token]', 'Use JWT credentials')
   .option('-a, --alias [name]', 'Set alias of deployment', '')
   .option('-v, --variables [items]', 'Key=Value variables', (item, list) => { list.push(item); return list; }, [])
@@ -23,7 +24,7 @@ program
 
 deploy(Object.assign(program.opts(), {folder: program.args.length === 0 ? process.cwd() : program.args[0] }));
 
-function deploy({folder, token, variables, instances, alias}){
+function deploy({folder, url, token, variables, instances, alias}){
   const args = path.resolve(folder);
   const pathObj = path.parse(args);
   const tarPath = path.join(os.tmpdir(), `${pathObj.name}.tar`);
@@ -34,6 +35,7 @@ function deploy({folder, token, variables, instances, alias}){
     .on('end', () => sync({
       tarPath,
       variables,
+      url,
       token,
       instances,
       alias,
@@ -49,9 +51,9 @@ function deploy({folder, token, variables, instances, alias}){
   });
 }
 
-function sync({tarPath, token, variables, instances, alias}){
+function sync({tarPath, token, url, variables, instances, alias}){
   configuration
-  .load({variables, tarPath, instances, token, alias})
+  .load({variables, tarPath, instances, token, url, alias})
   .then(settings => { console.log(`Deploying ${chalk.green.underline(settings.alias || settings.name || '-')} for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`); return settings;})
   .then(settings => {
     if(settings.message) return Promise.reject(new Error(settings.message));
