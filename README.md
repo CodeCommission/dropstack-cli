@@ -7,41 +7,47 @@
 __Install__ the package globally:
 
 ```bash
-$ npm install -g dropstack-cli
+npm install -g dropstack-cli
 ```
+
 __Help__
+
 ```bash
-$ dropstack --help
+dropstack --help
 ```
 
-Just enter `dropstack deploy` in the folder you want to deploy.
+Just enter `dropstack deploy` in the folder you want to deploy or look at our [dropstack examples](https://github.com/dropstack/dropstack-examples).
 
-__Docker__
+__Static Websites__
+
 ```bash
-$ my-go-app/ ls
-Dockerfile  server.go
-$ my-go-app/ dropstack deploy
+my-web-site/ ls
+index.html  logo.png
+my-web-site/ dropstack deploy
 ```
 
 __Node.JS__
-```bash
-$ my-nodejs-api/ ls
-package.json  index.js
-$ my-nodejs-api/ dropstack deploy
-```
 
-__Static Websites__
 ```bash
-$ my-web-site/ ls
-index.html  logo.png
-$ my-web-site/ dropstack deploy
+my-nodejs-api/ ls
+package.json  index.js
+my-nodejs-api/ dropstack deploy
 ```
 
 __Single Page Applications__
+
 ```bash
-$ my-spa-app/ ls
+my-spa-app/ ls
 index.html  bundle.js
-$ my-spa-app/ dropstack deploy
+my-spa-app/ dropstack deploy
+```
+
+__Any Docker enabled folder__
+
+```bash
+my-go-app/ ls
+Dockerfile  server.go
+my-go-app/ dropstack deploy
 ```
 
 ## What DROPSTACK is?
@@ -57,27 +63,29 @@ Let's demonstrate how easy deploying a project with dropstack actually is:
 __Step 1__ Install dropstack globally with `npm install -g dropstack-cli`<br/>
 
 __Step 2__ Create a new directory and switch to it:
+
 ```bash
-$ mkdir my-webapp
-$ cd my-webapp
+mkdir my-webapp
+cd my-webapp
 ```
 
 __Step 3__ Write the app configuration into a __package.json__ file...
+
 ```bash
-$ npm init
+npm init
 ```
 
 __Step 4__ Run `dropstack` to deploy. Every time you run `dropstack` in the same folder, you make an updated redeploy. You might see files uploading, and then we show you the progress of the commands executed for deploying your application.
 
 ```bash
-$ dropstack deploy
+dropstack deploy
 ```
 
 The first time you run `dropstack`, it'll ask for your email address in order to identify you. Simply click on the email you've received, and you'll be logged in automatically.
 
 ## Display and parsing the Log-Stream
 
-```
+```bash
 dropstack logs cron-example | jq -R 'fromjson?|.message|fromjson'
 ```
 
@@ -95,11 +103,12 @@ dropstack logs cron-example | jq -R 'fromjson?|.message|fromjson'
 * Display metrics as stream
 
 ## Contributors
-Check them out [here](https://github.com/MikeBild/dropstack-cli/graphs/contributors)
+
+Check them out [here](https://github.com/dropstack/dropstack-cli/graphs/contributors)
 
 ## Issue Reporting
 
-If you have found a bug or if you have a feature request, please report them at this repository issues section. Please do not report security vulnerabilities on the public [GitHub issue tracker](https://github.com/MikeBild/dropstack-cli/issues).
+If you have found a bug or if you have a feature request, please report them at this repository issues section. Please do not report security vulnerabilities on the public [GitHub issue tracker](https://github.com/dropstack/dropstack-cli/issues).
 
 ## License
 

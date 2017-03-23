@@ -1,11 +1,18 @@
 {
   "name": "dropstack-cli",
-  "version": "1.4.6",
+  "version": "1.4.7",
   "description": "A CLI to simplify continuous deployments via Web-Service API and Docker Swarm with integrated SSL, DNS-Server and JWT authentification.",
   "bin": {
     "dropstack": "./bin/dropstack"
   },
-  "repository": "mikebild/dropstack-cli",
+  "homepage": "https://dropstack.run",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dropstack/dropstack-cli"
+  },
+  "bugs": {
+    "url": "https://github.com/dropstack/dropstack-cli/issues"
+  },
   "author": "Mike Bild <mike.bild@googlemail.com>",
   "license": "MIT",
   "dependencies": {
