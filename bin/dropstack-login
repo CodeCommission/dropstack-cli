@@ -9,7 +9,6 @@ const configuration = require('../lib/settings')();
 
 program
   .arguments('<url>')
-  .option('-s, --signout', 'Sign out')
   .option('-s, --reset', 'Request password reset')
   .option('-t, --token', 'Display current user JWT token')
   .action(url => account(Object.assign({url: url}, program)))
@@ -17,26 +16,14 @@ program
 
 if(!program.args.length) account(program.opts());
 
-function account({url, token, username, password, login, reset, signout}) {
-  if(signout) {
-    return configuration.removeGlobalFile()
-      .then(() => {
-        console.log(chalk.green(`Signed out`));
-        process.exit(0);
-      })
-      .catch(err => {
-        console.error(chalk.red(`\nAn error occurred ${chalk.gray(err.message)}`));
-        process.exit(1);
-      });
-  }
-
+function account({url, token, username, password, login, reset}) {
   configuration
-  .load({url, reset, signout})
+  .load({url, reset})
   .then(settings => configuration.save(settings))
   .then(settings => { console.log(chalk.green(`Account information for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`)); return settings;})
   .then(settings => reset ? credentials.reset(settings).then(data => Promise.reject(data)) : Promise.resolve(settings))
   .then(settings => !settings.token ? credentials.inputEmail(settings.username).then(data => Object.assign(settings, data)) : Promise.resolve(settings))
-  .then(settings => !settings.token ? credentials.inputPassword(settings.password).then(data => Object.assign(settings, data)) : Promise.resolve(settings))  
+  .then(settings => !settings.token ? credentials.inputPassword(settings.password).then(data => Object.assign(settings, data)) : Promise.resolve(settings))
   .then(settings => !settings.token ? credentials.login(settings).catch(() => credentials.signup(settings)).then(data => Object.assign(settings, data)) : Promise.resolve(settings))
   .then(settings => {
     if(!settings.token) return Promise.reject(new Error('Sign in failed. Use `dropstack login` to log in with your credentials.'));
@@ -45,7 +32,7 @@ function account({url, token, username, password, login, reset, signout}) {
   })
   .then(settings => configuration.save(settings))
   .then(settings => {
-    return fetch(`${settings.url}/auth/account`, { headers: { 'Authorization': `Bearer ${settings.token}`, } })    
+    return fetch(`${settings.url}/auth/account`, { headers: { 'Authorization': `Bearer ${settings.token}`, } })
     .then(response => response.status >= 400 ? Promise.reject(new Error(`Response error: ${response.statusText}`)) : response)
     .then(response => response.json())
     .then(data => Object.assign(data, settings));
@@ -70,7 +57,7 @@ function account({url, token, username, password, login, reset, signout}) {
       console.error(chalk.red(`Sign in failed.`));
       return process.exit(1);
     }
-    
+
     if(err.message === 'Sign in failed. Use `dropstack login` to log in with your credentials.'){
       console.error(chalk.red(`Credentials not found. Use ${chalk.bold('dropstack login')} to verifiy your credentials.`));
       process.exit(1);

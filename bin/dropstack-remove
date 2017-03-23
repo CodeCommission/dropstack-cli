@@ -25,25 +25,24 @@ function remove({name, force}){
   .then(response => {
     return new Promise((resolve, reject) => {
       if(response.status >= 400) reject(new Error(`Response error: ${response.statusText}`));
-      
+
       let message = '';
       let result = { message: 'Malformed response' };
       response.body.on('end', () => resolve(result));
       response.body.on('data', chunk => {
-
-        message += chunk;
-        const messageSeparatorIndex = message.indexOf('}');
-        if (messageSeparatorIndex !== -1) {
-          const progress = message.slice(0, messageSeparatorIndex+1);
+        message += chunk.toString('utf-8');
+        const messageSeparatorIndex = message.indexOf('\n');
+        if (messageSeparatorIndex > 0) {
+          const progress = message.slice(0, messageSeparatorIndex);
           try {
             const progressState = JSON.parse(progress);
             result = progressState;
+            if(progressState && progressState.message) return reject(new Error(`${progressState.destroyProgress}: ${progressState.message}`));
+            if(progressState && progressState.destroyProgress) bar.tick(progressState);
             message = message.slice(messageSeparatorIndex + 1);
-            if(progressState && progressState.message) return reject(new Error(`${progressState.deployProgress}: ${progressState.message}`));
-            if(progressState && progressState.deployProgress) bar.tick(progressState);            
           } catch(err) {
             reject(err);
-          }          
+          }
         }
 
       });

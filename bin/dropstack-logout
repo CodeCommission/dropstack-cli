@@ -1,0 +1,26 @@
+#!/usr/bin/env node
+const path = require('path');
+const fs = require('fs');
+const program = require('commander');
+const chalk = require('chalk');
+const fetch = require('node-fetch');
+const configuration = require('../lib/settings')();
+
+program.parse(process.argv);
+
+if(!program.args.length) logout();
+
+function logout() {
+  configuration
+  .load()
+  .then(settings => { console.log(`Logout for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`); return settings;})
+  .then(()  => configuration.removeGlobalFile())
+  .then(() => {
+    console.log(chalk.green(`Logged out`));
+    process.exit(0);
+  })
+  .catch(err => {
+    console.error(chalk.red(`\nAn error occurred: ${chalk.gray(err.message)}`));
+    process.exit(1);
+  })
+}
