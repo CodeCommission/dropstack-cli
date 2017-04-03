@@ -5,6 +5,7 @@ const os = require('os');
 const program = require('commander');
 const chalk = require('chalk');
 const tar = require('tar');
+const minimatch = require('minimatch');
 const fstream = require('fstream');
 const fetch = require('node-fetch');
 const copyPaste = require('copy-paste');
@@ -110,15 +111,15 @@ function deployment(settings) {
         if (messageSeparatorIndex > 0) {
           const progress = message.slice(0, messageSeparatorIndex);
           try {
-            const progressState = JSON.parse(progress);            
+            const progressState = JSON.parse(progress);
             result = progressState;
             if(progressState && progressState.message) return reject(new Error(`${progressState.deployProgress}: ${progressState.message}`));
-            if(progressState && progressState.deployProgress) bar.tick(progressState);   
+            if(progressState && progressState.deployProgress) bar.tick(progressState);
             message = message.slice(messageSeparatorIndex + 1);
           } catch(err) {
             reject(err);
           }
-          
+
         }
       });
     });
@@ -136,5 +137,11 @@ function deployment(settings) {
 }
 
 function tarFileFilter(entry, excludes = []) {
-  return excludes.every(x => x !== entry.basename) && entry.basename !== 'node_modules' && entry.basename !== 'npm-debug.log' && entry.basename !== '.git' && entry.basename !== '.DS_Store';
+  const exclude = !excludes.map(x => minimatch(entry.path, path.resolve(x)))[0];
+  return exclude
+  && entry.basename !== 'node_modules'
+  && entry.basename !== 'npm-debug.log'
+  && entry.basename !== '.git'
+  && entry.basename !== '.DS_Store'
+  && entry.basename !== '.dropstack.json';
 }

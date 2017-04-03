@@ -50,6 +50,16 @@ Dockerfile  server.go
 my-go-app/ dropstack deploy
 ```
 
+__Exclude folders from deployment__
+
+* Manually change your `.dropstack.json` file and add __glob pattern__ to exclude files from deployment
+
+```json
+"excludes": [
+  "databases/*"
+]
+```
+
 ## What DROPSTACK is?
 
 DROPSTACK CLI takes any of your Docker-, NodeJS- or static Web-Sites/Services to the DROPSTACK-Server with ease, speed and reliability. In practical terms, any directory that contains a package.json or Dockerfile can be transported to the DROPSTACK-Server with the single CLI command: `dropstack`.
