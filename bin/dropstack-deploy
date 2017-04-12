@@ -16,16 +16,17 @@ const configuration = require('../lib/settings')();
 
 program
   .arguments('[folder]')
-  .option('-u, --url [url]', 'Use JWT credentials')
   .option('-t, --token [token]', 'Use JWT credentials')
   .option('-a, --alias [name]', 'Set alias of deployment', '')
+  .option('-y, --type [name]', 'Set type of deployment manually')
+  .option('-s, --https', 'Enable HTTPS/HTTP2/SPDY of deployment')
   .option('-v, --variables [items]', 'Key=Value variables', (item, list) => { list.push(item); return list; }, [])
-  .option('-i, --instances [number]', 'Number of running instances for deployment')
+  .option('-i, --instances [number]', 'Number of running instances for deployment', 1)
   .parse(process.argv);
 
 deploy(Object.assign(program.opts(), {folder: program.args.length === 0 ? process.cwd() : program.args[0] }));
 
-function deploy({folder, url, token, variables, instances, alias}){
+function deploy({folder, token, variables, instances, alias, https, type}){
   const args = path.resolve(folder);
   const pathObj = path.parse(args);
   const tarPath = path.join(os.tmpdir(), `${pathObj.name}.tar`);
@@ -36,10 +37,11 @@ function deploy({folder, url, token, variables, instances, alias}){
     .on('end', () => sync({
       tarPath,
       variables,
-      url,
       token,
       instances,
       alias,
+      type,
+      https,
     }));
 
   configuration
@@ -52,9 +54,9 @@ function deploy({folder, url, token, variables, instances, alias}){
   });
 }
 
-function sync({tarPath, token, url, variables, instances, alias}){
+function sync({tarPath, token, variables, instances, alias, type, https}){
   configuration
-  .load({variables, tarPath, instances, token, url, alias})
+  .load({variables, tarPath, instances, token, alias, type, https})
   .then(settings => { console.log(`Deploying ${chalk.green.underline(settings.alias || settings.name || '-')} for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`); return settings;})
   .then(settings => {
     if(settings.message) return Promise.reject(new Error(settings.message));
@@ -69,6 +71,7 @@ function sync({tarPath, token, url, variables, instances, alias}){
     if(settings && settings.alias) console.log(`Alias URL: ${settings.alias}`);
   })
   .catch(err => {
+    console.log(err)
     if(err.message === 'canceled') {
       console.log(chalk.yellow('aborted'));
       return process.exit(0);
@@ -86,10 +89,12 @@ function sync({tarPath, token, url, variables, instances, alias}){
 function deployment(settings) {
   const pathObj = path.parse(settings.tarPath);
   const form = new FormData();
-  const bar = new ProgressBar('[:current/:total :deployProgress] [:bar] :percent :elapseds', { total: 11, width: 24 });
+  const bar = new ProgressBar('[:current/:total :deployProgress] [:bar] :percent :elapsed s', { total: 11, width: 24 });
 
   if(settings.name) form.append('serviceName', settings.name);
   if(settings.alias) form.append('serviceAlias', settings.alias);
+  if(settings.https) form.append('serviceHTTPS', settings.https.toString());
+  if(settings.type) form.append('serviceType', settings.type);
   if(settings.instances) form.append('serviceInstances', settings.instances);
   if(settings.variables) form.append('serviceVariables', settings.variables.join(','));
   form.append(pathObj.name, fs.createReadStream(settings.tarPath));
@@ -119,7 +124,6 @@ function deployment(settings) {
           } catch(err) {
             reject(err);
           }
-
         }
       });
     });
@@ -129,6 +133,7 @@ function deployment(settings) {
     settings.serviceUrl = data.serviceUrl;
     settings.alias = data.serviceAlias;
     settings.type = data.serviceType;
+    settings.https = data.serviceHTTPS;
     settings.instances = data.serviceInstances;
     settings.variables = data.serviceVariables;
     copyPaste.copy(data.serviceAlias || data.serviceUrl || '');
