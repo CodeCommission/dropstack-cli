@@ -3,20 +3,26 @@ const fs = require('fs');
 const path = require('path');
 const program = require('commander');
 const fetch = require('node-fetch');
+const urlRegex = require('url-regex');
 const chalk = require('chalk');
 const credentials = require('../lib/credentials')();
 const configuration = require('../lib/settings')();
 
 program
   .arguments('<url>')
-  .option('-s, --reset', 'Request password reset')
-  .option('-t, --token', 'Display current user JWT token')
+  .option('-r, --reset', 'Request password reset')
+  .option('-t, --token', 'Display current JSON Web Token')
   .action(url => account(Object.assign({url: url}, program)))
   .parse(process.argv);
 
 if(!program.args.length) account(program.opts());
 
-function account({url, token, username, password, login, reset}) {
+function account({url, token, reset}) {
+  if(url && !urlRegex({exact: true}).test(url)) {
+    console.log(chalk.red('Invalid DROPSTACK URL. Must be the format http(s)://host.domain.com.'));
+    return process.exit(1);
+  }
+
   configuration
   .load({url, reset})
   .then(settings => configuration.save(settings))
@@ -32,7 +38,7 @@ function account({url, token, username, password, login, reset}) {
   })
   .then(settings => configuration.save(settings))
   .then(settings => {
-    return fetch(`${settings.url}/auth/account`, { headers: { 'Authorization': `Bearer ${settings.token}`, } })
+    return fetch(`${settings.url}/auth/account`, { headers: { 'Authorization': `Bearer ${settings.token}`, timeout: 10, } })
     .then(response => response.status >= 400 ? Promise.reject(new Error(`Response error: ${response.statusText}`)) : response)
     .then(response => response.json())
     .then(data => Object.assign(data, settings));
@@ -40,7 +46,7 @@ function account({url, token, username, password, login, reset}) {
   .then(data => Boolean(data.message) ? Promise.reject(new Error(data.message)) : data)
   .then(data => {
     console.log(chalk.gray(`User: ${data.id}`));
-    console.log(chalk.gray(`Profile: ${JSON.stringify(data.metadata, null, 2)}`));
+    // console.log(chalk.gray(`Profile: ${JSON.stringify(data.metadata, null, 2)}`));
     if(token) console.log(chalk.gray(`JWT: ${data.token}`));
     process.exit(0);
   })

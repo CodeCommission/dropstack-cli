@@ -16,7 +16,7 @@ const configuration = require('../lib/settings')();
 
 program
   .arguments('[folder]')
-  .option('-t, --token [token]', 'Use JWT credentials')
+  .option('-t, --token [token]', 'Use JSON Web Token credentials')
   .option('-a, --alias [name]', 'Set alias of deployment', '')
   .option('-y, --type [name]', 'Set type of deployment manually')
   .option('-s, --https', 'Enable HTTPS/HTTP2/SPDY of deployment')
