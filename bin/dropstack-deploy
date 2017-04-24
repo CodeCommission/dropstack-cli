@@ -12,13 +12,15 @@ const copyPaste = require('copy-paste');
 const ProgressBar = require('progress');
 const FormData = require('form-data');
 const credentials = require('../lib/credentials')();
-const configuration = require('../lib/settings')();
+const configurationSettings = require('../lib/settings');
+let configuration;
 
 program
   .arguments('[folder]')
   .option('-t, --token [token]', 'Use JSON Web Token credentials')
   .option('-a, --alias [name]', 'Set alias of deployment', '')
   .option('-u, --url [url]', 'Set server URL of deployment', '')
+  .option('-e, --environment [name]', 'Set an environment name of deployment', '')
   .option('-y, --type [name]', 'Set type of deployment manually')
   .option('-s, --https', 'Enable HTTPS/HTTP2/SPDY of deployment')
   .option('-v, --variables [items]', 'Key=Value variables', (item, list) => { list.push(item); return list; }, [])
@@ -27,7 +29,9 @@ program
 
 deploy(Object.assign(program.opts(), {folder: program.args.length === 0 ? process.cwd() : program.args[0] }));
 
-function deploy({folder, token, variables, instances, alias, https, type, url}){
+function deploy({folder, token, variables, instances, alias, https, type, url, environment}){
+  configuration = configurationSettings(`.dropstack${environment ? '.' + environment + '.' : '.'}json`);
+
   const args = path.resolve(folder);
   const pathObj = path.parse(args);
   const tarPath = path.join(os.tmpdir(), `${pathObj.name}.tar`);
