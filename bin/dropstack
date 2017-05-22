@@ -10,6 +10,6 @@ program
   .command('list', 'List', 'List your active deployment from current environment.')
   .command('remove [name]', 'Remove deployment from current environment.')
   .command('ssl <name>', 'Manage SSL')
-  .command('logs [name]', 'StdOut/StdErr Log-Stream')
-  .command('monitor [name]', 'Metric-Stream (not available in BETA)')
+  .command('logs [name]', 'Show libe StdOut/StdErr logs')
+  .command('stats [name]', 'Show live statistical metrics')
   .parse(process.argv);

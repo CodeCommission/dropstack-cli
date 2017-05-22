@@ -1,0 +1,91 @@
+#!/usr/bin/env node
+const fs = require('fs');
+const path = require('path');
+const program = require('commander');
+const chalk = require('chalk');
+const fetch = require('node-fetch');
+const EventSource = require('eventsource');
+const configuration = require('../lib/settings')();
+
+program
+  .arguments('<name>')
+  .option('-s, --stream', 'Output as Live-Stream.')
+  .action(name => metrics(Object.assign({name: name}, program)))
+  .parse(process.argv);
+
+if(!program.args.length) metrics(program.opts());
+
+function metrics({name, stream}){
+  if(stream) return metricsLive(name)
+  configuration
+  .load()
+  .then(settings => { console.log(`Statistical metrics for ${chalk.green.underline(settings.username)}`); return settings;})
+  .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed. Use `dropstack login` to log in with your credentials.')) : settings)
+  .then(settings => fetch(`${settings.url}/statistics`, {headers: {Authorization: `Bearer ${settings.token}`}})
+    .then(response => response.status >= 400 ? Promise.reject(new Error(`Response error: ${response.statusText}`)) : response)
+    .then(response => response.json()))
+  .then(data => Boolean(data.message) ? Promise.reject(new Error(data.message)) : data)
+  .then(data => {
+      console.log(chalk.gray(`| SUMMARY  | Bytes in: ${data.inBytes || 0} | Bytes out: ${data.outBytes || 0} |`));
+      Object.keys(data.services)
+      .map(x => data.services[x])
+      .forEach(x => console.log(chalk.gray(`| ${x.name} | Bytes in: ${x.inBytes || 0} | Bytes out: ${x.outBytes || 0} |`)));
+  })
+  .catch(err => {
+    if(err.message === 'Sign in failed. Use `dropstack login` to log in with your credentials.'){
+      console.error(chalk.red(`Credentials not found. Use ${chalk.bold('dropstack login')} to verifiy your credentials.`));
+      process.exit(1);
+    }
+    console.error(chalk.red(`\nAn error occurred: ${chalk.gray(err.message)}`));
+    process.exit(1);
+  });
+}
+
+function metricsLive(name){
+  configuration
+  .load()
+  .then(settings => { console.log(`Live - statistical metrics for ${chalk.green.underline(settings.username)}`); return settings;})
+  .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed. Use `dropstack login` to log in with your credentials.')) : settings)
+  .then(settings => {
+    const es = new EventSource(`${settings.url}/statistics/live`, {headers: {Connection: 'keep-alive', 'cache-control': 'no-cache', Authorization: `Bearer ${settings.token}`}});
+    process.stdout.write(chalk.gray(`Connecting...`));
+
+    es.onopen = () => {
+      process.stdout.clearLine();
+      process.stdout.cursorTo(0);
+      process.stdout.write(`Connected`);
+    };
+
+    es.onmessage = e => {
+      let data = {}
+      try {
+        data = JSON.parse(e.data);
+      } catch(e){};
+
+      process.stdout.cursorTo(0);
+      process.stdout.clearLine();
+      console.log(chalk.gray(`| SUMMARY  | Bytes in: ${data.inBytes || 0} | Bytes out: ${data.outBytes || 0} |`));
+
+      const services = Object.keys(data.services).map(x => data.services[x]);
+
+      services
+      .forEach(x => {
+        process.stdout.cursorTo(0);
+        process.stdout.clearLine();
+        console.log(chalk.gray(`| ${x.name} | Bytes in: ${x.inBytes || 0} | Bytes out: ${x.outBytes || 0} |`));
+
+      });
+      process.stdout.moveCursor(0, (services.length+1)*-1);
+    };
+
+    es.onerror = () => console.log('Connection error. Retry please.');
+  })
+  .catch(err => {
+    if(err.message === 'Sign in failed. Use `dropstack login` to log in with your credentials.'){
+      console.error(chalk.red(`Credentials not found. Use ${chalk.bold('dropstack login')} to verifiy your credentials.`));
+      process.exit(1);
+    }
+    console.error(chalk.red(`\nAn error occurred: ${chalk.gray(err.message)}`));
+    process.exit(1);
+  });
+}
