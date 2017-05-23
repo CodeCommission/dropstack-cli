@@ -40,7 +40,10 @@ function remove({name, force}){
         if(n === 8) n = 1;
         process.stdout.cursorTo(0);
         process.stdout.write(`${spin[n++]}`);
-        if(progressState && progressState.message) return reject(new Error(`${progressState.deployProgress}: ${progressState.message}`));
+        if(progressState && progressState.message) {
+          es.close();
+          return reject(new Error(`${progressState.deployProgress}: ${progressState.message}`));
+        }
         if(progressState && progressState.deployProgress === 'deregistrated') {
           process.stdout.cursorTo(0);
           process.stdout.clearLine();
@@ -56,7 +59,11 @@ function remove({name, force}){
         }
       };
 
-      fetch(`${settings.url}/deploys/${name || settings.name}`, { method: 'DELETE', headers: { Authorization: `Bearer ${settings.token}`} }).catch(err => reject(err));
+      fetch(`${settings.url}/deploys/${name || settings.name}`, { method: 'DELETE', headers: { Authorization: `Bearer ${settings.token}`} })
+      .catch(err => {
+        es.close();
+        reject(err);
+      });
     });
   })
   .then(data => console.log(`Deployment ${chalk.red.bold(data.serviceName)} removed`))

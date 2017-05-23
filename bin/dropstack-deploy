@@ -124,7 +124,10 @@ function deployment(settings) {
       process.stdout.cursorTo(0);
       process.stdout.write(`${spin[n++]}`);
 
-      if(progressState && progressState.message) return reject(new Error(`${progressState.deployProgress}: ${progressState.message}`));
+      if(progressState && progressState.message) {
+        es.close();
+        return reject(new Error(`${progressState.deployProgress}: ${progressState.message}`))
+      };
       if(progressState && progressState.deployProgress === 'registrated') {
         process.stdout.cursorTo(0);
         process.stdout.clearLine();
@@ -165,7 +168,11 @@ function deployment(settings) {
         settings.variables = data.serviceVariables;
         configuration.save(settings);
     })
-    .catch(err => reject(err));
+    .catch(err => {
+      es.close();
+      reject(err);
+    });
+
   });
 }
 
