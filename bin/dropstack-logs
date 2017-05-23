@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const program = require('commander');
 const chalk = require('chalk');
-const fetch = require('node-fetch');
+const EventSource = require('eventsource');
 const configuration = require('../lib/settings')();
 
 program
@@ -20,12 +20,14 @@ function log({name, follow}) {
   .load()
   .then(settings => { console.log(`Logs ${chalk.green.underline(name || settings.name || '-')} for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`); return settings;})
   .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed. Use `dropstack login` to log in with your credentials.')) : settings)
-  .then(settings => fetch(`${settings.url}/deploys/${name || settings.serviceName}/logs?${!follow ? 'follow='+follow : 'follow=true'}`, { headers: { Authorization: `Bearer ${settings.token}`, } }))
-  .then(response => {
-    return new Promise((resolve, reject) => {
-      if(response.status >= 400) reject(new Error(`Response error: ${response.statusText}`));
-      response.body.on('data', data => process.stdout.write(data));
-    });
+  .then(settings => {
+    process.stderr.write('\x1B[?25l'); //hide terminal cursor
+    const es = new EventSource(`${settings.url}/deploys/${name || settings.serviceName}/logs?${!follow ? 'follow='+follow : 'follow=true'}`, {headers: {connection: 'keep-alive', 'cache-control': 'no-cache', authorization: `Bearer ${settings.token}`}});
+    es.onerror = () => {
+      process.stderr.write('\x1B[?25h'); //show terminal cursor
+      reject(new Error(`Log-Stream error occurred. Retry please.`));
+    }
+    es.onmessage = e => console.log(e.data)
   })
   .catch(err => {
     if(err.message === 'Error fetching service'){

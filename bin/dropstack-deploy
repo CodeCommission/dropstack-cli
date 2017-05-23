@@ -9,8 +9,8 @@ const minimatch = require('minimatch');
 const fstream = require('fstream');
 const fetch = require('node-fetch');
 const copyPaste = require('copy-paste');
-const ProgressBar = require('progress');
 const FormData = require('form-data');
+const EventSource = require('eventsource');
 const credentials = require('../lib/credentials')();
 const configurationSettings = require('../lib/settings');
 let configuration;
@@ -73,7 +73,7 @@ function sync({tarPath, token, variables, instances, alias, type, https, url}){
   .then(settings => configuration.save(settings))
   .then(settings => {
     console.log(chalk.green('\nDeployment completed'), chalk.gray('URL copied to clipboard.'));
-    console.log(`Deploy URL: ${chalk.bold(settings.serviceUrl)}`);
+    console.log(`Deploy URL: https://${chalk.bold(settings.serviceUrl)}`);
     if(settings && settings.alias) console.log(`Alias URL: ${settings.alias}`);
   })
   .catch(err => {
@@ -95,7 +95,6 @@ function sync({tarPath, token, variables, instances, alias, type, https, url}){
 function deployment(settings) {
   const pathObj = path.parse(settings.tarPath);
   const form = new FormData();
-  const bar = new ProgressBar('[:current/:total :deployProgress] [:bar] :percent :elapsed s', { total: 11, width: 24 });
 
   if(settings.name) form.append('serviceName', settings.name);
   if(settings.alias) form.append('serviceAlias', settings.alias);
@@ -105,45 +104,68 @@ function deployment(settings) {
   if(settings.variables) form.append('serviceVariables', settings.variables.join(','));
   form.append(pathObj.name, fs.createReadStream(settings.tarPath));
 
-  return fetch(`${settings.url}/deploys/${settings.name || ''}`, {
-    method: 'POST',
-    body: form,
-    headers: { Authorization: `Bearer ${settings.token}`, }
-  })
-  .then(response => {
-    return new Promise((resolve, reject) => {
-      if(response.status >= 400) reject(new Error(`Response error: ${response.statusText}`));
-      let message = '';
-      let result = { message: 'Malformed response' };
-      response.body.on('end', () => resolve(result));
-      response.body.on('data', chunk => {
-        message += chunk.toString('utf-8');
-        const messageSeparatorIndex = message.indexOf('\n');
-        if (messageSeparatorIndex > 0) {
-          const progress = message.slice(0, messageSeparatorIndex);
-          try {
-            const progressState = JSON.parse(progress);
-            result = progressState;
-            if(progressState && progressState.message) return reject(new Error(`${progressState.deployProgress}: ${progressState.message}`));
-            if(progressState && progressState.deployProgress) bar.tick(progressState);
-            message = message.slice(messageSeparatorIndex + 1);
-          } catch(err) {
-            reject(err);
-          }
-        }
-      });
-    });
-  })
-  .then(data => {
-    settings.name = data.serviceName;
-    settings.serviceUrl = data.serviceUrl;
-    settings.alias = data.serviceAlias;
-    settings.type = data.serviceType;
-    settings.https = data.serviceHTTPS;
-    settings.instances = data.serviceInstances;
-    settings.variables = data.serviceVariables;
-    copyPaste.copy(data.serviceAlias || data.serviceUrl || '');
-    return settings;
+  return new Promise((resolve, reject) => {
+    const spin = ' ⢹⢺⢼⣸⣇⡧⡗⡏'.split('');
+    let n = 1;
+    const es = new EventSource(`${settings.url}/deploys/live`, {headers: {connection: 'keep-alive', 'cache-control': 'no-cache', authorization: `Bearer ${settings.token}`}});
+    process.stderr.write('\x1B[?25l'); //hide terminal cursor
+
+    es.onerror = () => {
+      process.stderr.write('\x1B[?25h'); //show terminal cursor
+      reject(new Error(`Deployment error occurred. Retry please.`));
+    };
+    es.onmessage = e => {
+      let progressState = {};
+      try {
+        progressState = JSON.parse(e.data)
+      } catch(e) {}
+
+      if(n === 8) n = 1;
+      process.stdout.cursorTo(0);
+      process.stdout.write(`${spin[n++]}`);
+
+      if(progressState && progressState.message) return reject(new Error(`${progressState.deployProgress}: ${progressState.message}`));
+      if(progressState && progressState.deployProgress === 'registrated') {
+        process.stdout.cursorTo(0);
+        process.stdout.clearLine();
+        process.stdout.write(chalk.gray(`Deployment ${progressState.deployProgress}`));
+        process.stderr.write('\x1B[?25h'); //show terminal cursor
+        es.close();
+        settings.name = progressState.serviceName;
+        settings.serviceUrl = progressState.serviceUrl;
+        settings.alias = progressState.serviceAlias;
+        settings.type = progressState.serviceType;
+        settings.https = progressState.serviceHTTPS;
+        settings.instances = progressState.serviceInstances;
+        settings.variables = progressState.serviceVariables;
+        copyPaste.copy(`https://${progressState.serviceAlias || progressState.serviceUrl || ''}`);
+        configuration.save(settings);
+        return resolve(settings);
+      }
+      if(progressState.deployProgress) {
+        process.stdout.cursorTo(2);
+        process.stdout.clearLine();
+        process.stdout.write(chalk.gray(capitalizeFirstLetter(progressState.deployProgress)));
+      }
+    };
+
+    fetch(`${settings.url}/deploys/${settings.name || ''}`, {
+      method: 'POST',
+      body: form,
+      headers: { Authorization: `Bearer ${settings.token}`, }
+    })
+    .then(res => res.json())
+    .then(data => {
+        settings.name = data.serviceName;
+        settings.serviceUrl = data.serviceUrl;
+        settings.alias = data.serviceAlias;
+        settings.type = data.serviceType;
+        settings.https = data.serviceHTTPS;
+        settings.instances = data.serviceInstances;
+        settings.variables = data.serviceVariables;
+        configuration.save(settings);
+    })
+    .catch(err => reject(err));
   });
 }
 
@@ -155,4 +177,8 @@ function tarFileFilter(entry, excludes = []) {
   && entry.basename !== '.git'
   && entry.basename !== '.DS_Store'
   && entry.basename !== '.dropstack.json';
+}
+
+function capitalizeFirstLetter(string) {
+  return string.charAt(0).toUpperCase() + string.slice(1);
 }

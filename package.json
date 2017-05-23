@@ -1,6 +1,6 @@
 {
   "name": "dropstack-cli",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "description": "A CLI to simplify continuous deployments via Web-Service API and Docker Swarm with integrated SSL, DNS-Server and JWT authentification.",
   "bin": {
     "dropstack": "./bin/dropstack"
@@ -25,7 +25,6 @@
     "fstream": "^1.0.11",
     "minimatch": "^3.0.3",
     "node-fetch": "^1.6.3",
-    "progress": "^1.1.8",
     "prompt": "^1.0.0",
     "tar": "^2.2.1",
     "url-regex": "^4.0.0"

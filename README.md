@@ -96,6 +96,8 @@ The first time you run `dropstack`, it'll ask for your email address in order to
 ## Display and parsing the Log-Stream
 
 ```bash
+dropstack logs pboyrkzm | jq -R 'fromjson?|.'
+dropstack logs cron-example | jq -R 'fromjson?|.message'
 dropstack logs cron-example | jq -R 'fromjson?|.message|fromjson'
 ```
 

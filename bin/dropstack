@@ -2,6 +2,11 @@
 const program = require('commander');
 const manifest = require('../package.json');
 
+process.on('SIGINT', () => {
+  process.stderr.write('\x1B[?25h'); //show terminal cursor
+  process.exit(0);
+});
+
 program
   .version(`${manifest.name} v${manifest.version}`)
   .command('login <url>', 'Log-in to URL given deployment environment. (default http://api.services.dropstack.run)')
@@ -9,7 +14,8 @@ program
   .command('deploy [folder]', 'Deploy to current deployment environment.')
   .command('list', 'List', 'List your active deployment from current environment.')
   .command('remove [name]', 'Remove deployment from current environment.')
-  .command('ssl <name>', 'Manage SSL')
+  .command('ssl <name>', 'Manage SSL for deployments')
+  .command('alias <name>', 'Manage alias for deployments')
   .command('logs [name]', 'Show libe StdOut/StdErr logs')
-  .command('stats [name]', 'Show live statistical metrics')
+  .command('metric [name]', 'Show metrics for deployments')
   .parse(process.argv);

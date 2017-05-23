@@ -9,19 +9,19 @@ const configuration = require('../lib/settings')();
 
 program
   .arguments('<name>')
-  .option('-s, --stream', 'Output as Live-Stream.')
+  .option('-l, --live', 'Output as Live-Stream.')
   .action(name => metrics(Object.assign({name: name}, program)))
   .parse(process.argv);
 
 if(!program.args.length) metrics(program.opts());
 
-function metrics({name, stream}){
-  if(stream) return metricsLive(name)
+function metrics({name, live}){
+  if(live) return metricsLive(name)
   configuration
   .load()
-  .then(settings => { console.log(`Statistical metrics for ${chalk.green.underline(settings.username)}`); return settings;})
+  .then(settings => { console.log(`Metrics for ${chalk.green.underline(settings.username)}`); return settings;})
   .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed. Use `dropstack login` to log in with your credentials.')) : settings)
-  .then(settings => fetch(`${settings.url}/statistics`, {headers: {Authorization: `Bearer ${settings.token}`}})
+  .then(settings => fetch(`${settings.url}/metrics`, {headers: {Authorization: `Bearer ${settings.token}`}})
     .then(response => response.status >= 400 ? Promise.reject(new Error(`Response error: ${response.statusText}`)) : response)
     .then(response => response.json()))
   .then(data => Boolean(data.message) ? Promise.reject(new Error(data.message)) : data)
@@ -44,10 +44,11 @@ function metrics({name, stream}){
 function metricsLive(name){
   configuration
   .load()
-  .then(settings => { console.log(`Live - statistical metrics for ${chalk.green.underline(settings.username)}`); return settings;})
+  .then(settings => { console.log(`Live metrics for ${chalk.green.underline(settings.username)}`); return settings;})
   .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed. Use `dropstack login` to log in with your credentials.')) : settings)
   .then(settings => {
-    const es = new EventSource(`${settings.url}/statistics/live`, {headers: {Connection: 'keep-alive', 'cache-control': 'no-cache', Authorization: `Bearer ${settings.token}`}});
+    process.stderr.write('\x1B[?25l'); //hide terminal cursor
+    const es = new EventSource(`${settings.url}/metrics/live`, {headers: {Connection: 'keep-alive', 'cache-control': 'no-cache', Authorization: `Bearer ${settings.token}`}});
     process.stdout.write(chalk.gray(`Connecting...`));
 
     es.onopen = () => {
