@@ -59,11 +59,14 @@ function remove({name, force}){
         }
       };
 
-      fetch(`${settings.url}/deploys/${name || settings.name}`, { method: 'DELETE', headers: { Authorization: `Bearer ${settings.token}`} })
-      .catch(err => {
-        es.close();
-        reject(err);
-      });
+      es.onopen = e => {
+        fetch(`${settings.url}/deploys/${name || settings.name}`, { method: 'DELETE', headers: { Authorization: `Bearer ${settings.token}`} })
+        .catch(err => {
+          es.close();
+          reject(err);
+        });
+      };
+
     });
   })
   .then(data => console.log(`Deployment ${chalk.red.bold(data.serviceName)} removed`))

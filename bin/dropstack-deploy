@@ -152,26 +152,28 @@ function deployment(settings) {
       }
     };
 
-    fetch(`${settings.url}/deploys/${settings.name || ''}`, {
-      method: 'POST',
-      body: form,
-      headers: { Authorization: `Bearer ${settings.token}`, }
-    })
-    .then(res => res.json())
-    .then(data => {
-        settings.name = data.serviceName;
-        settings.serviceUrl = data.serviceUrl;
-        settings.alias = data.serviceAlias;
-        settings.type = data.serviceType;
-        settings.https = data.serviceHTTPS;
-        settings.instances = data.serviceInstances;
-        settings.variables = data.serviceVariables;
-        configuration.save(settings);
-    })
-    .catch(err => {
-      es.close();
-      reject(err);
-    });
+    es.onopen = e => {
+      fetch(`${settings.url}/deploys/${settings.name || ''}`, {
+        method: 'POST',
+        body: form,
+        headers: { Authorization: `Bearer ${settings.token}`, }
+      })
+      .then(res => res.json())
+      .then(data => {
+          settings.name = data.serviceName;
+          settings.serviceUrl = data.serviceUrl;
+          settings.alias = data.serviceAlias;
+          settings.type = data.serviceType;
+          settings.https = data.serviceHTTPS;
+          settings.instances = data.serviceInstances;
+          settings.variables = data.serviceVariables;
+          configuration.save(settings);
+      })
+      .catch(err => {
+        es.close();
+        reject(err);
+      });
+    };
 
   });
 }
