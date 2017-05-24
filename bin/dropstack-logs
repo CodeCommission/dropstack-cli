@@ -39,7 +39,7 @@ function log({name, follow}) {
       process.exit(1);
     }
     console.error(err)
-    console.error(chalk.red(`\nAn error occurred: ${chalk.gray(err.message)}`));
+    console.error(chalk.red(`\nAn unexpected error occurred ${chalk.gray(err.message)}`));
     process.exit(1);
   });
 }

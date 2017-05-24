@@ -38,7 +38,7 @@ function deploy({folder, token, variables, instances, alias, https, type, url, e
   const dirDest = fs.createWriteStream(tarPath);
   const packer = tar
     .Pack({ noProprietary: true, fromBase: true })
-    .on('error', err => console.error(chalk.red(`An error occurred: ${chalk.gray(err.message)}`)))
+    .on('error', err => console.error(chalk.red(`An unexpected error occurred ${chalk.gray(err.message)}`)))
     .on('end', () => sync({
       tarPath,
       variables,
@@ -54,7 +54,7 @@ function deploy({folder, token, variables, instances, alias, https, type, url, e
   .load()
   .then(settings => {
     fstream.Reader({ path: args, type: 'Directory', follow: false, filter: x => tarFileFilter(x, settings.excludes)})
-      .on('error', err => console.error(chalk.red(`An error occurred: ${chalk.gray(err.message)}`)))
+      .on('error', err => console.error(chalk.red(`An unexpected error occurred ${chalk.gray(err.message)}`)))
       .pipe(packer)
       .pipe(dirDest);
   });
@@ -87,7 +87,7 @@ function sync({tarPath, token, variables, instances, alias, type, https, url}){
       console.error(chalk.red(`Verify your Dockerfile, please!`))
       return process.exit(1);
     }
-    console.error(chalk.red(`\nAn error occurred ${chalk.gray(err.message)}`));
+    console.error(chalk.red(`\nAn unexpected error occurred ${chalk.gray(err.message)}`));
     process.exit(1);
   });
 }
@@ -106,6 +106,7 @@ function deployment(settings) {
 
   return new Promise((resolve, reject) => {
     const spin = ' ⢹⢺⢼⣸⣇⡧⡗⡏'.split('');
+    const startDate = new Date();
     let n = 1;
     const es = new EventSource(`${settings.url}/deploys/live`, {headers: {connection: 'keep-alive', 'cache-control': 'no-cache', authorization: `Bearer ${settings.token}`}});
     process.stderr.write('\x1B[?25l'); //hide terminal cursor
@@ -131,7 +132,7 @@ function deployment(settings) {
       if(progressState && progressState.deployProgress === 'registrated') {
         process.stdout.cursorTo(0);
         process.stdout.clearLine();
-        process.stdout.write(chalk.gray(`Deployment ${progressState.deployProgress}`));
+        process.stdout.write(chalk.gray(`Deployment ${progressState.deployProgress} [${(new Date().getTime() - startDate.getTime()) / 1000}s]`));
         process.stderr.write('\x1B[?25h'); //show terminal cursor
         es.close();
         settings.name = progressState.serviceName;
@@ -148,7 +149,7 @@ function deployment(settings) {
       if(progressState.deployProgress) {
         process.stdout.cursorTo(2);
         process.stdout.clearLine();
-        process.stdout.write(chalk.gray(capitalizeFirstLetter(progressState.deployProgress)));
+        process.stdout.write(chalk.gray(`${capitalizeFirstLetter(progressState.deployProgress)} [${(new Date().getTime() - startDate.getTime()) / 1000}s]`));
       }
     };
 

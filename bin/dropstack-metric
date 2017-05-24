@@ -36,7 +36,7 @@ function metrics({name, live}){
       console.error(chalk.red(`Credentials not found. Use ${chalk.bold('dropstack login')} to verifiy your credentials.`));
       process.exit(1);
     }
-    console.error(chalk.red(`\nAn error occurred: ${chalk.gray(err.message)}`));
+    console.error(chalk.red(`\nAn unexpected error occurred ${chalk.gray(err.message)}`));
     process.exit(1);
   });
 }
@@ -62,6 +62,7 @@ function metricsLive(name){
       try {
         data = JSON.parse(e.data);
       } catch(e){};
+      if(!data.services) return;
 
       process.stdout.cursorTo(0);
       process.stdout.clearLine();
@@ -86,7 +87,7 @@ function metricsLive(name){
       console.error(chalk.red(`Credentials not found. Use ${chalk.bold('dropstack login')} to verifiy your credentials.`));
       process.exit(1);
     }
-    console.error(chalk.red(`\nAn error occurred: ${chalk.gray(err.message)}`));
+    console.error(chalk.red(`\nAn unexpected error occurred ${chalk.gray(err.message)}`));
     process.exit(1);
   });
 }

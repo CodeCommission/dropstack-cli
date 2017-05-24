@@ -40,12 +40,13 @@ function account({url, token, reset}) {
   .then(settings => {
     return fetch(`${settings.url}/auth/account`, { headers: { 'Authorization': `Bearer ${settings.token}`, timeout: 10, } })
     .then(response => response.status >= 400 ? Promise.reject(new Error(`Response error: ${response.statusText}`)) : response)
-    .then(response => response.json())
-    .then(data => Object.assign(data, settings));
+    .then(response => response.json().then(data => Object.assign({}, data, {version: response.headers.get('version')})))
+    .then(data => Object.assign({}, data, settings));
   })
   .then(data => Boolean(data.message) ? Promise.reject(new Error(data.message)) : data)
   .then(data => {
     console.log(chalk.gray(`User: ${data.id}`));
+    console.log(chalk.gray(`Server-Version: ${data.version}`))
     // console.log(chalk.gray(`Profile: ${JSON.stringify(data.metadata, null, 2)}`));
     if(token) console.log(chalk.gray(`JWT: ${data.token}`));
     process.exit(0);
@@ -69,7 +70,7 @@ function account({url, token, reset}) {
       process.exit(1);
     }
 
-    console.error(chalk.red(`\nAn error occurred ${chalk.gray(err.message)}`));
+    console.error(chalk.red(`\nAn unexpected error occurred ${chalk.gray(err.message)}`));
     process.exit(1);
   });
 }
