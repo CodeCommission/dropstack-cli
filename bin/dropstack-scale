@@ -1,0 +1,46 @@
+#!/usr/bin/env node
+const fs = require('fs');
+const path = require('path');
+const program = require('commander');
+const chalk = require('chalk');
+const fetch = require('node-fetch');
+const copyPaste = require('copy-paste');
+const configuration = require('../lib/settings')();
+
+program
+  .arguments('[name]')
+  .option('-i, --instances [number]', 'Scale to number of instances of deployment.')
+  .action(name => scale({name: name || '', instances: program.instances}))
+  .parse(process.argv);
+
+if(!program.args.length) scale(program.opts());
+
+function scale({name, instances}) {
+  if(!instances) {
+    console.error(chalk.red(`Enter a number of instances of deployment name. Use 'dropstack scale -h' for more informations.`));
+    process.exit(1);
+  }
+
+  configuration
+  .load()
+  .then(settings => { console.log(`Scaling ${chalk.green.underline(name || settings.name || '-')} for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`); return settings;})
+  .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed. Use `dropstack login` to log in with your credentials.')) : settings)
+  .then(settings => Boolean(name || settings.name) ? settings : Promise.reject(`Enter a deployment name. Use 'dropstack scale -h' for more informations.`))
+  .then(settings => fetch(`${settings.url}/deploys/${name || settings.name}/scale`, { method: 'PUT', body: JSON.stringify({serviceInstances: instances || ''}), headers: { Authorization: `Bearer ${settings.token}`, 'Content-Type': 'application/json' } })
+    .then(response => response.status >= 400 ? Promise.reject(new Error(`Response error: ${response.statusText}`)) : response)
+    .then(response => response.json()))
+  .then(data => Boolean(data.message) ? Promise.reject(new Error(data.message)) : data)
+  .then(data => {
+    console.log(chalk.green(`Scale for ${data.serviceAlias || data.serviceName} updated.`));
+    console.log(chalk.gray(`URL https://${data.serviceAlias || data.serviceUrl || ''} copied to clipboard.`));
+    copyPaste.copy(`https://${data.serviceAlias || data.serviceUrl || ''}`);
+  })
+  .catch(err => {
+    if(err.message === 'Sign in failed. Use `dropstack login` to log in with your credentials.'){
+      console.error(chalk.red(`Credentials not found. Use ${chalk.bold('dropstack login')} to verifiy your credentials.`));
+      process.exit(1);
+    }
+    console.error(chalk.red(`\nAn unexpected error occurred ${chalk.gray(err.message)}`));
+    process.exit(1);
+  });
+}
