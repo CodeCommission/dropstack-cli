@@ -2,6 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const program = require('commander');
+const boxen = require('boxen');
 const chalk = require('chalk');
 const fetch = require('node-fetch');
 const copyPaste = require('copy-paste');
@@ -31,9 +32,15 @@ function scale({name, instances}) {
     .then(response => response.json()))
   .then(data => Boolean(data.message) ? Promise.reject(new Error(data.message)) : data)
   .then(data => {
-    console.log(chalk.green(`Scale for ${data.serviceAlias || data.serviceName} updated.`));
-    console.log(chalk.gray(`URL https://${data.serviceAlias || data.serviceUrl || ''} copied to clipboard.`));
     copyPaste.copy(`https://${data.serviceAlias || data.serviceUrl || ''}`);
+
+    let message = chalk.green(`Scale ${chalk.bold(data.serviceName || data.serviceName)} updated - ${data && data.serviceInstances && `${data.serviceInstances} running instance(s)!\n`}`);
+    message += '\n';
+    message += `• URL: ${chalk.bold(`https://${data.serviceUrl}`)}\n`;
+    if(data && data.serviceAlias) message += `• Alias: ${chalk.bold(data.serviceAlias)}\n`;
+    message += `\n${chalk.gray('URL copied to clipboard.')}`;
+    console.log();
+    console.log(boxen(message, {padding: 1, borderColor: 'gray', margin: 1}));
   })
   .catch(err => {
     if(err.message === 'Sign in failed. Use `dropstack login` to log in with your credentials.'){

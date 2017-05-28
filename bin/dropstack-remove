@@ -2,6 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const program = require('commander');
+const boxen = require('boxen');
 const chalk = require('chalk');
 const fetch = require('node-fetch');
 const EventSource = require('eventsource');
@@ -70,7 +71,12 @@ function remove({name, force}){
 
     });
   })
-  .then(data => console.log(`Deployment ${chalk.red.bold(data.serviceName)} removed`))
+  .then(data => {
+    let message = `${chalk.green(`Deployment ${chalk.red.bold(data.serviceName)} removed!`)}`;
+    console.log(boxen(message, {padding: 1, borderColor: 'gray', margin: 1}));
+
+    return data;
+  })
   .then(() => force ? configuration.remove() : Promise.resolve())
   .catch(err => {
     if(err.message === 'Sign in failed. Use `dropstack login` to log in with your credentials.'){

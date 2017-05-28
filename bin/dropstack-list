@@ -13,13 +13,17 @@ if(!program.args.length) list();
 function list(){
   configuration
   .load()
-  .then(settings => { console.log(`Deployments for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`); return settings;})
+  .then(settings => { console.log(`Deployments for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}\n`); return settings;})
   .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed. Use `dropstack login` to log in with your credentials.')) : settings)
   .then(settings => fetch(`${settings.url}/deploys`, { headers: { Authorization: `Bearer ${settings.token}`, } })
     .then(response => response.status >= 400 ? Promise.reject(new Error(`Response error: ${response.statusText}`)) : response)
     .then(response => response.json()))
   .then(data => Boolean(data.message) ? Promise.reject(new Error(data.message)) : data)
-  .then(data => (data || []).map(x => `${chalk.gray(pad(7, x.serviceType.toUpperCase(),' '))} | ${chalk.green(pad(9, x.serviceName, ' '))} | ${chalk.bold(pad(45,  x.serviceUrl || '-', ' '))}`))
+  .then(data => {
+    console.log(`${chalk.bold(pad(7, 'TYPE', ' '))} | ${chalk.bold(pad(5, 'COUNT', ' '))} | ${chalk.bold(pad(9, 'ID/NAME', ' '))} | ${chalk.bold(pad(45, 'URL', ' '))}`);
+    return data;
+  })
+  .then(data => (data || []).map(x => `${chalk.gray(pad(7, x.serviceType.toUpperCase(), ' '))} | ${chalk.gray(pad(5, x.serviceInstances, ' '))} | ${chalk.green(pad(9, x.serviceName, ' '))} | ${chalk.bold(pad(45,  `https://${x.serviceUrl || '-'}`, ' '))}`))
   .then(data => {
     if(data.length > 0) return data.map(x => console.log(x));
     console.log('Nothing deployed');

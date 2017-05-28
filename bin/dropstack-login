@@ -2,6 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const program = require('commander');
+const boxen = require('boxen');
 const fetch = require('node-fetch');
 const urlRegex = require('url-regex');
 const chalk = require('chalk');
@@ -26,7 +27,11 @@ function account({url, token, reset}) {
   configuration
   .load({url, reset})
   .then(settings => configuration.save(settings))
-  .then(settings => { console.log(chalk.green(`Account information for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`)); return settings;})
+  .then(settings => {
+    console.log(chalk.green(`Account information for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`));
+    if(!(settings.token && settings.username)) console.log(chalk.yellow(`Enter your email and password to log in or sign up for free!\n`));
+    return settings;
+  })
   .then(settings => reset ? credentials.reset(settings).then(data => Promise.reject(data)) : Promise.resolve(settings))
   .then(settings => !settings.token ? credentials.inputEmail(settings.username).then(data => Object.assign(settings, data)) : Promise.resolve(settings))
   .then(settings => !settings.token ? credentials.inputPassword(settings.password).then(data => Object.assign(settings, data)) : Promise.resolve(settings))
@@ -45,10 +50,11 @@ function account({url, token, reset}) {
   })
   .then(data => Boolean(data.message) ? Promise.reject(new Error(data.message)) : data)
   .then(data => {
-    console.log(chalk.gray(`User: ${data.id}`));
-    console.log(chalk.gray(`Server-Version: ${data.version}`))
-    // console.log(chalk.gray(`Profile: ${JSON.stringify(data.metadata, null, 2)}`));
-    if(token) console.log(chalk.gray(`JWT: ${data.token}`));
+    let message = `${chalk.green(`User ${chalk.bold(data.id)} logged in successful!\n\n`)}`;
+    message += `• ${chalk.gray(`Server-Version: ${data.version}`)}`;
+    if(token) message = `${chalk.gray(`JWT: ${data.token}`)}`;
+    console.log(boxen(message, {padding: 1, borderColor: 'gray', margin: 1}));
+
     process.exit(0);
   })
   .catch(err => {

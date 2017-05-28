@@ -1,6 +1,15 @@
 #!/usr/bin/env node
 const program = require('commander');
-const manifest = require('../package.json');
+const updateNotifier = require('update-notifier');
+const nodeVersion = require('node-version');
+const pkg = require('../package.json');
+
+updateNotifier({pkg}).notify();
+
+if (nodeVersion.major < 6) {
+  console.error(chalk.red(`Error! Linklet requires at least version 6 of NodeJS. Please upgrade your NodeJS version please.`));
+  process.exit(1);
+}
 
 process.on('SIGINT', () => {
   process.stderr.write('\x1B[?25h'); //show terminal cursor
@@ -8,8 +17,8 @@ process.on('SIGINT', () => {
 });
 
 program
-  .version(`${manifest.name} v${manifest.version}`)
-  .command('login <url>', 'Log-in to URL given deployment environment. (default http://api.services.dropstack.run)')
+  .version(`${pkg.name} v${pkg.version}`)
+  .command('login <url>', 'Log-in to URL given deployment environment. (default http://api.cloud.dropstack.run)')
   .command('logout', 'Log-out from current deployment environment.')
   .command('deploy [folder]', 'Deploy to current deployment environment.')
   .command('list', 'List', 'List your active deployment from current environment.')

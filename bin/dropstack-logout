@@ -2,6 +2,7 @@
 const path = require('path');
 const fs = require('fs');
 const program = require('commander');
+const boxen = require('boxen');
 const chalk = require('chalk');
 const fetch = require('node-fetch');
 const configuration = require('../lib/settings')();
@@ -16,7 +17,8 @@ function logout() {
   .then(settings => { console.log(`Logout for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`); return settings;})
   .then(()  => configuration.removeGlobalFile())
   .then(() => {
-    console.log(chalk.green(`Logged out`));
+    let message = `${chalk.green(`Logged out!`)}`;
+    console.log(boxen(message, {padding: 1, borderColor: 'gray', margin: 1}));
     process.exit(0);
   })
   .catch(err => {
