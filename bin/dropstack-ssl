@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const program = require('commander');
 const chalk = require('chalk');
+const boxen = require('boxen');
 const fetch = require('node-fetch');
 const copyPaste = require('copy-paste');
 const configuration = require('../lib/settings')();
