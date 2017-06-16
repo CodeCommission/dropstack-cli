@@ -1,6 +1,6 @@
 # DROPSTACK-CLI
 
-> A CLI to simplify continuous deployments via Web-Service API and Docker Swarm with integrated SSL, DNS-Server and JWT authentification.
+> A CLI to simplify continuous deployments into hybrid clouds.
 
 ## Usage
 
