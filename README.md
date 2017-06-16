@@ -116,11 +116,11 @@ dropstack logs cron-example | jq -R 'fromjson?|.message|fromjson'
 
 ## Contributors
 
-Check them out [here](https://github.com/dropstack/dropstack-cli/graphs/contributors)
+Every participation is welcome. Check them out [here](https://github.com/codecommission/dropstack-cli/graphs/contributors)
 
 ## Issue Reporting
 
-If you have found a bug or if you have a feature request, please report them at this repository issues section. Please do not report security vulnerabilities on the public [GitHub issue tracker](https://github.com/dropstack/dropstack-cli/issues).
+If you have found a bug or if you have a feature request, please report them at this repository issues section. Please do not report security vulnerabilities on the public [GitHub issue tracker](https://github.com/codecommission/dropstack-cli/issues).
 
 ## License
 
@@ -128,6 +128,6 @@ This project is licensed under the MIT license. See the [LICENSE](LICENSE.md) fi
 
 ## Thanks
 
-You like DROPSTACK and you want to see what coming next? Follow me on Twitter [`@mikebild`](https://twitter.com/mikebild).
+You like this and you want to see what coming next? Follow me on Twitter [`@mikebild`](https://twitter.com/mikebild).
 
 Enjoy!
