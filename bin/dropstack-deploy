@@ -82,7 +82,6 @@ function sync({tarPath, token, variables, instances, alias, type, https, url}){
     console.log(boxen(message, {padding: 1, borderColor: 'gray', margin: 1}));
   })
   .catch(err => {
-    console.log(err)
     if(err.message === 'canceled') {
       console.log(chalk.yellow('aborted'));
       return process.exit(0);
@@ -92,7 +91,7 @@ function sync({tarPath, token, variables, instances, alias, type, https, url}){
       console.error(chalk.red(`Verify your Dockerfile, please!`))
       return process.exit(1);
     }
-    console.error(chalk.red(`\nAn unexpected error occurred ${chalk.gray(err.message)}`));
+    console.error(chalk.red(`\nAn unexpected error occurred! Message: "${chalk.gray(err.message)}"`));
     process.exit(1);
   });
 }
