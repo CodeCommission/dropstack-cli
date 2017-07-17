@@ -25,7 +25,7 @@ function log({name, follow}) {
     const es = new EventSource(`${settings.url}/deploys/${name || settings.serviceName}/logs?${!follow ? 'follow='+follow : 'follow=true'}`, {headers: {connection: 'keep-alive', 'cache-control': 'no-cache', authorization: `Bearer ${settings.token}`}});
     es.onerror = () => {
       process.stderr.write('\x1B[?25h'); //show terminal cursor
-      reject(new Error(`Log-Stream error occurred. Retry please.`));
+      console.error('Log-Stream error occurred. Retry...');
     }
     es.onmessage = e => console.log(e.data)
   })
@@ -38,7 +38,7 @@ function log({name, follow}) {
       console.error(chalk.red(`Credentials not found. Use ${chalk.bold('dropstack login')} to verifiy your credentials.`));
       process.exit(1);
     }
-    console.error(chalk.red(`\nAn unexpected error occurred! Message: "${chalk.gray(err.message)}"`));
+    console.error(chalk.red(`\nAn unexpected error occurred!\nMessage: ${chalk.gray(err.message)}`));
     process.exit(1);
   });
 }

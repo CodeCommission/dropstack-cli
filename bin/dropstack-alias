@@ -47,7 +47,7 @@ function alias({name, url}) {
       console.error(chalk.red(`Credentials not found. Use ${chalk.bold('dropstack login')} to verifiy your credentials.`));
       process.exit(1);
     }
-    console.error(chalk.red(`\nAn unexpected error occurred! Message: "${chalk.gray(err.message)}"`));
+    console.error(chalk.red(`\nAn unexpected error occurred!\nMessage: ${chalk.gray(err.message)}`));
     process.exit(1);
   });
 }

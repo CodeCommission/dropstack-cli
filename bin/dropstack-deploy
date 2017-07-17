@@ -24,13 +24,14 @@ program
   .option('-e, --environment [name]', 'Set an environment name of deployment', '')
   .option('-y, --type [name]', 'Set type of deployment manually', '')
   .option('-s, --https', 'Enable HTTPS/HTTP2/SPDY of deployment', false)
+  .option('-m, --alive-endpoint [path]', 'Alive monitoring endpoint (/info)', '')
   .option('-v, --variables [items]', 'Key=Value variables', (item, list) => { list.push(item); return list; }, [])
   .option('-i, --instances [number]', 'Number of running instances for deployment', 0)
   .parse(process.argv);
 
 deploy(Object.assign(program.opts(), {folder: program.args.length === 0 ? process.cwd() : program.args[0] }));
 
-function deploy({folder, token, variables, instances, alias, https, type, url, environment}){
+function deploy({folder, token, variables, instances, alias, https, type, url, environment, aliveEndpoint}){
   configuration = configurationSettings(`.dropstack${environment ? '.' + environment + '.' : '.'}json`);
 
   const args = path.resolve(folder);
@@ -39,7 +40,7 @@ function deploy({folder, token, variables, instances, alias, https, type, url, e
   const dirDest = fs.createWriteStream(tarPath);
   const packer = tar
     .Pack({ noProprietary: true, fromBase: true })
-    .on('error', err => console.error(chalk.red(`An unexpected error occurred ${chalk.gray(err.message)}`)))
+    .on('error', err => console.error(chalk.red(`\nAn unexpected error occurred!\nMessage: ${chalk.gray(err.message)}`)))
     .on('end', () => sync({
       tarPath,
       variables,
@@ -48,6 +49,7 @@ function deploy({folder, token, variables, instances, alias, https, type, url, e
       alias,
       type,
       https,
+      aliveEndpoint,
       url,
     }));
 
@@ -55,15 +57,16 @@ function deploy({folder, token, variables, instances, alias, https, type, url, e
   .load()
   .then(settings => {
     fstream.Reader({ path: args, type: 'Directory', follow: false, filter: x => tarFileFilter(x, settings.excludes)})
-      .on('error', err => console.error(chalk.red(`An unexpected error occurred ${chalk.gray(err.message)}`)))
+      .on('error', err => console.error(chalk.red(`\nAn unexpected error occurred!\nMessage: ${chalk.gray(err.message)}`)))
       .pipe(packer)
       .pipe(dirDest);
   });
 }
 
-function sync({tarPath, token, variables, instances, alias, type, https, url}){
+function sync({tarPath, token, variables, instances, alias, type, https, url, aliveEndpoint}){
   configuration
-  .load({variables, tarPath, instances, token, alias, type, https, url})
+  .load({variables, tarPath, instances, token, alias, type, https, url, aliveEndpoint})
+  .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed. Use `dropstack login` to log in with your credentials.')) : settings)
   .then(settings => { console.log(`Deploying ${chalk.green.underline(settings.alias || settings.name || '-')} for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`); return settings;})
   .then(settings => {
     if(settings.message) return Promise.reject(new Error(settings.message));
@@ -91,7 +94,16 @@ function sync({tarPath, token, variables, instances, alias, type, https, url}){
       console.error(chalk.red(`Verify your Dockerfile, please!`))
       return process.exit(1);
     }
-    console.error(chalk.red(`\nAn unexpected error occurred! Message: "${chalk.gray(err.message)}"`));
+    if(err.message === 'Sign in failed. Use `dropstack login` to log in with your credentials.'){
+      console.error(chalk.red(`Credentials not found. Use ${chalk.bold('dropstack login')} to verifiy your credentials.`));
+      process.exit(1);
+    }
+    if(err.message.indexOf('Deployment error occurred') !== -1) {
+      console.error(chalk.red(`\n${err.message}. Retry please!`))
+      return process.exit(1);
+    }
+
+    console.error(chalk.red(`\nAn unexpected error occurred!\nMessage: ${chalk.gray(err.message)}`));
     process.exit(1);
   });
 }
@@ -105,7 +117,8 @@ function deployment(settings) {
   if(settings.https) form.append('serviceHTTPS', settings.https.toString());
   if(settings.type) form.append('serviceType', settings.type);
   if(settings.instances) form.append('serviceInstances', settings.instances);
-  if(settings.variables) form.append('serviceVariables', settings.variables.join(','));
+  if(settings.aliveEndpoint) form.append('serviceAliveEndpoint', settings.aliveEndpoint);
+  if(settings.variables) form.append('serviceVariables', settings.variables);
   form.append(pathObj.name, fs.createReadStream(settings.tarPath));
 
   return new Promise((resolve, reject) => {
@@ -117,7 +130,7 @@ function deployment(settings) {
 
     es.onerror = () => {
       process.stderr.write('\x1B[?25h'); //show terminal cursor
-      reject(new Error(`Deployment error occurred. Retry please.`));
+      reject(new Error('Deployment error occurred'));
     };
     es.onmessage = e => {
       let progressState = {};
@@ -145,7 +158,7 @@ function deployment(settings) {
         settings.type = progressState.serviceType;
         settings.https = progressState.serviceHTTPS;
         settings.instances = progressState.serviceInstances;
-        settings.group = progressState.serviceGroup;
+        settings.aliveEndpoint = progressState.serviceAliveEndpoint;
         settings.variables = progressState.serviceVariables;
         copyPaste.copy(`https://${progressState.serviceAlias || progressState.serviceUrl || ''}`);
         configuration.save(settings);
@@ -173,6 +186,7 @@ function deployment(settings) {
           settings.https = data.serviceHTTPS;
           settings.instances = data.serviceInstances;
           settings.variables = data.serviceVariables;
+          settings.aliveEndpoint = data.serviceAliveEndpoint;
           configuration.save(settings);
       })
       .catch(err => {
