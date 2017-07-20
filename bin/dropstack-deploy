@@ -170,7 +170,7 @@ function deployment(settings, verbose) {
         return resolve(settings);
       }
       if(progressState && progressState.serviceName && verbose) {
-        console.log(chalk.gray(`${progressState.serviceName} ${progressState.buildImageProgress || progressState.deployProgress || progressState.pushImageProgress} ${progressState.log || '-'}`))
+        console.log(chalk.gray(`${progressState.serviceName} ${progressState.buildImageProgress || progressState.deployProgress || progressState.pushImageProgress} ${(progressState.log || '').replace('\n', '')}`))
       } else {
         if(progressState.deployProgress) {
           process.stdout.cursorTo(2);
