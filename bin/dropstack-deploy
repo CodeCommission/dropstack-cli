@@ -27,11 +27,12 @@ program
   .option('-m, --alive-endpoint [path]', 'Alive monitoring endpoint (/info)', '')
   .option('-v, --variables [items]', 'Key=Value variables', (item, list) => { list.push(item); return list; }, [])
   .option('-i, --instances [number]', 'Number of running instances for deployment', 0)
+  .option('-o, --verbose', 'Enable verbose deployment output')
   .parse(process.argv);
 
 deploy(Object.assign(program.opts(), {folder: program.args.length === 0 ? process.cwd() : program.args[0] }));
 
-function deploy({folder, token, variables, instances, alias, https, type, url, environment, aliveEndpoint}){
+function deploy({folder, token, variables, instances, alias, https, type, url, environment, aliveEndpoint, verbose}){
   configuration = configurationSettings(`.dropstack${environment ? '.' + environment + '.' : '.'}json`);
 
   const args = path.resolve(folder);
@@ -51,6 +52,7 @@ function deploy({folder, token, variables, instances, alias, https, type, url, e
       https,
       aliveEndpoint,
       url,
+      verbose,
     }));
 
   configuration
@@ -63,7 +65,7 @@ function deploy({folder, token, variables, instances, alias, https, type, url, e
   });
 }
 
-function sync({tarPath, token, variables, instances, alias, type, https, url, aliveEndpoint}){
+function sync({tarPath, token, variables, instances, alias, type, https, url, aliveEndpoint, verbose}){
   configuration
   .load({variables, tarPath, instances, token, alias, type, https, url, aliveEndpoint})
   .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed. Use `dropstack login` to log in with your credentials.')) : settings)
@@ -73,7 +75,7 @@ function sync({tarPath, token, variables, instances, alias, type, https, url, al
     return settings;
   })
   .then(settings => configuration.save(settings))
-  .then(settings => deployment(settings))
+  .then(settings => deployment(settings, verbose))
   .then(settings => configuration.save(settings))
   .then(settings => {
     let message = chalk.green(`Deployment ${chalk.bold(settings.name || '-')} completed - ${settings && settings.instances && `${settings.instances} running instance(s)!\n`}`);
@@ -108,7 +110,7 @@ function sync({tarPath, token, variables, instances, alias, type, https, url, al
   });
 }
 
-function deployment(settings) {
+function deployment(settings, verbose) {
   const pathObj = path.parse(settings.tarPath);
   const form = new FormData();
 
@@ -138,14 +140,17 @@ function deployment(settings) {
         progressState = JSON.parse(e.data)
       } catch(e) {}
 
-      if(n === 8) n = 1;
-      process.stdout.cursorTo(0);
-      process.stdout.write(`${spin[n++]}`);
+      if(!verbose) {
+        if(n === 8) n = 1;
+        process.stdout.cursorTo(0);
+        process.stdout.write(`${spin[n++]}`);
+      }
 
       if(progressState && progressState.message) {
         es.close();
         return reject(new Error(`${progressState.deployProgress}: ${progressState.message}`))
       };
+
       if(progressState && progressState.deployProgress === 'registrated') {
         process.stdout.cursorTo(0);
         process.stdout.clearLine();
@@ -164,10 +169,14 @@ function deployment(settings) {
         configuration.save(settings);
         return resolve(settings);
       }
-      if(progressState.deployProgress) {
-        process.stdout.cursorTo(2);
-        process.stdout.clearLine();
-        process.stdout.write(chalk.gray(`${capitalizeFirstLetter(progressState.deployProgress)} [${(new Date().getTime() - startDate.getTime()) / 1000}s]`));
+      if(progressState && progressState.serviceName && verbose) {
+        console.log(chalk.gray(`${progressState.serviceName} ${progressState.buildImageProgress || progressState.deployProgress || progressState.pushImageProgress} ${progressState.log || '-'}`))
+      } else {
+        if(progressState.deployProgress) {
+          process.stdout.cursorTo(2);
+          process.stdout.clearLine();
+          process.stdout.write(chalk.gray(`${capitalizeFirstLetter(progressState.deployProgress)} [${(new Date().getTime() - startDate.getTime()) / 1000}s]`));
+        }
       }
     };
 
