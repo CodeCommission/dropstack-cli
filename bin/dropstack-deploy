@@ -34,6 +34,7 @@ program
 deploy(Object.assign(program.opts(), {folder: program.args.length === 0 ? process.cwd() : program.args[0] }));
 
 function deploy({folder, token, variables, instances, alias, https, type, url, environment, aliveEndpoint, verbose, excludes}){
+  process.stderr.write('\x1B[?25l'); //hide terminal cursor
   configuration = configurationSettings(`.dropstack${environment ? '.' + environment + '.' : '.'}json`);
 
   const args = path.resolve(folder);
@@ -58,20 +59,27 @@ function deploy({folder, token, variables, instances, alias, https, type, url, e
     }));
 
   configuration
-  .load()
-  .then(settings => {
-    fstream.Reader({ path: args, type: 'Directory', follow: false, filter: x => tarFileFilter(x, settings.excludes)})
-      .on('error', err => console.error(chalk.red(`\nAn unexpected error occurred!\nMessage: ${chalk.gray(err.message)}`)))
-      .pipe(packer)
-      .pipe(dirDest);
-  });
+    .load()
+    .then(settings => {
+      console.log(`Deploying ${chalk.green.underline(settings.alias || settings.name || '-')} for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`);
+      if(verbose) {
+        console.log(chalk.gray(`${settings.name || '--------'} packing ... please wait!`));
+      } else {
+        process.stdout.cursorTo(0);
+        process.stdout.clearLine();
+        process.stdout.write(chalk.gray(' Packing ... please wait!'));
+      }
+      fstream.Reader({ path: args, type: 'Directory', follow: false, filter: x => tarFileFilter(x, settings.excludes)})
+        .on('error', err => console.error(chalk.red(`\nAn unexpected error occurred!\nMessage: ${chalk.gray(err.message)}`)))
+        .pipe(packer)
+        .pipe(dirDest);
+    });
 }
 
 function sync({tarPath, token, variables, instances, alias, type, https, url, aliveEndpoint, verbose, excludes}){
   configuration
   .load({variables, tarPath, instances, token, alias, type, https, url, aliveEndpoint, excludes})
   .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed. Use `dropstack login` to log in with your credentials.')) : settings)
-  .then(settings => { console.log(`Deploying ${chalk.green.underline(settings.alias || settings.name || '-')} for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`); return settings;})
   .then(settings => {
     if(settings.message) return Promise.reject(new Error(settings.message));
     return settings;
@@ -114,6 +122,15 @@ function sync({tarPath, token, variables, instances, alias, type, https, url, al
 function deployment(settings, verbose) {
   const pathObj = path.parse(settings.tarPath);
   const form = new FormData();
+  const startDate = new Date();
+
+  if(verbose) {
+    console.log(chalk.gray(`${settings.name || '--------'} uploading ... please wait!`))
+  } else {
+    process.stdout.cursorTo(0);
+    process.stdout.clearLine();
+    process.stdout.write(chalk.gray(`  Uploading ... please wait!`))
+  };
 
   if(settings.name) form.append('serviceName', settings.name);
   if(settings.alias) form.append('serviceAlias', settings.alias);
@@ -129,7 +146,6 @@ function deployment(settings, verbose) {
     const startDate = new Date();
     let n = 1;
     const es = new EventSource(`${settings.url}/deploys/live`, {headers: {connection: 'keep-alive', 'cache-control': 'no-cache', authorization: `Bearer ${settings.token}`}});
-    process.stderr.write('\x1B[?25l'); //hide terminal cursor
 
     es.onerror = () => {
       process.stderr.write('\x1B[?25h'); //show terminal cursor
