@@ -26,13 +26,14 @@ program
   .option('-s, --https', 'Enable HTTPS/HTTP2/SPDY of deployment', false)
   .option('-m, --alive-endpoint [path]', 'Alive monitoring endpoint (/info)', '')
   .option('-v, --variables [items]', 'Key=Value variables', (item, list) => { list.push(item); return list; }, [])
+  .option('-x, --excludes [items]', 'Exclude files (globs)', (item, list) => { list.push(item); return list; }, [])
   .option('-i, --instances [number]', 'Number of running instances for deployment', 0)
   .option('-o, --verbose', 'Enable verbose deployment output')
   .parse(process.argv);
 
 deploy(Object.assign(program.opts(), {folder: program.args.length === 0 ? process.cwd() : program.args[0] }));
 
-function deploy({folder, token, variables, instances, alias, https, type, url, environment, aliveEndpoint, verbose}){
+function deploy({folder, token, variables, instances, alias, https, type, url, environment, aliveEndpoint, verbose, excludes}){
   configuration = configurationSettings(`.dropstack${environment ? '.' + environment + '.' : '.'}json`);
 
   const args = path.resolve(folder);
@@ -53,6 +54,7 @@ function deploy({folder, token, variables, instances, alias, https, type, url, e
       aliveEndpoint,
       url,
       verbose,
+      excludes,
     }));
 
   configuration
@@ -65,16 +67,15 @@ function deploy({folder, token, variables, instances, alias, https, type, url, e
   });
 }
 
-function sync({tarPath, token, variables, instances, alias, type, https, url, aliveEndpoint, verbose}){
+function sync({tarPath, token, variables, instances, alias, type, https, url, aliveEndpoint, verbose, excludes}){
   configuration
-  .load({variables, tarPath, instances, token, alias, type, https, url, aliveEndpoint})
+  .load({variables, tarPath, instances, token, alias, type, https, url, aliveEndpoint, excludes})
   .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed. Use `dropstack login` to log in with your credentials.')) : settings)
   .then(settings => { console.log(`Deploying ${chalk.green.underline(settings.alias || settings.name || '-')} for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`); return settings;})
   .then(settings => {
     if(settings.message) return Promise.reject(new Error(settings.message));
     return settings;
   })
-  .then(settings => configuration.save(settings))
   .then(settings => deployment(settings, verbose))
   .then(settings => configuration.save(settings))
   .then(settings => {
@@ -166,7 +167,6 @@ function deployment(settings, verbose) {
         settings.aliveEndpoint = progressState.serviceAliveEndpoint;
         settings.variables = progressState.serviceVariables;
         copyPaste.copy(`https://${progressState.serviceAlias || progressState.serviceUrl || ''}`);
-        configuration.save(settings);
         return resolve(settings);
       }
       if(progressState && progressState.serviceName && verbose) {
@@ -188,15 +188,14 @@ function deployment(settings, verbose) {
       })
       .then(res => res.json())
       .then(data => {
-          settings.name = data.serviceName;
-          settings.serviceUrl = data.serviceUrl;
-          settings.alias = data.serviceAlias;
-          settings.type = data.serviceType;
-          settings.https = data.serviceHTTPS;
-          settings.instances = data.serviceInstances;
-          settings.variables = data.serviceVariables;
-          settings.aliveEndpoint = data.serviceAliveEndpoint;
-          configuration.save(settings);
+        settings.name = data.serviceName;
+        settings.serviceUrl = data.serviceUrl;
+        settings.alias = data.serviceAlias;
+        settings.type = data.serviceType;
+        settings.https = data.serviceHTTPS;
+        settings.instances = data.serviceInstances;
+        settings.variables = data.serviceVariables;
+        settings.aliveEndpoint = data.serviceAliveEndpoint;
       })
       .catch(err => {
         es.close();
