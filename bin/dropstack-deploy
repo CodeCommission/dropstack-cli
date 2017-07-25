@@ -234,7 +234,7 @@ function deployment(settings, verbose) {
 }
 
 function tarFileFilter(entry, excludes = []) {
-  const exclude = !excludes.map(x => minimatch(entry.path, path.resolve(x)))[0];
+  const exclude = !excludes.some(x => minimatch(entry.path, path.resolve(x)))
   return exclude
   && entry.basename !== 'node_modules'
   && entry.basename !== 'npm-debug.log'
