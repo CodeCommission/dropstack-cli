@@ -123,13 +123,18 @@ function deployment(settings, verbose) {
   const pathObj = path.parse(settings.tarPath);
   const form = new FormData();
   const startDate = new Date();
+  const tarStream = fs.createReadStream(settings.tarPath);
+  const stat = fs.statSync(settings.tarPath);
+  const fileSize = (stat.size / (1024 * 1024)).toFixed(2);
+  const spin = ' ⢹⢺⢼⣸⣇⡧⡗⡏'.split('');
+  let n = 1;
 
   if(verbose) {
-    console.log(chalk.gray(`${settings.name || '--------'} uploading`))
+    console.log(chalk.gray(`${settings.name || '--------'} uploading [${fileSize} MB]`))
   } else {
     process.stdout.cursorTo(0);
     process.stdout.clearLine();
-    process.stdout.write(chalk.gray(`  Uploading`))
+    process.stdout.write(chalk.gray(`${chalk.white(spin[n++])} Uploading [${fileSize} MB]`))
   };
 
   if(settings.name) form.append('serviceName', settings.name);
@@ -139,31 +144,24 @@ function deployment(settings, verbose) {
   if(settings.instances) form.append('serviceInstances', settings.instances);
   if(settings.aliveEndpoint) form.append('serviceAliveEndpoint', settings.aliveEndpoint);
   if(settings.variables) form.append('serviceVariables', settings.variables);
-  const tarStream = fs.createReadStream(settings.tarPath);
-  const stat = fs.statSync(settings.tarPath);
   let uploadedSize = 0;
   tarStream.on('data', buffer => {
     uploadedSize += buffer.length;
     if(verbose) {
-      console.log(chalk.gray(`${settings.name || '--------'} ${(uploadedSize/stat.size*100).toFixed(2)}% uploaded`));
+      console.log(chalk.gray(`${settings.name || '--------'} ${(uploadedSize/stat.size*100).toFixed(2)}% uploaded [${(uploadedSize / (1024 * 1024)).toFixed(2)} MB]`));
     } else {
+      if(n === 8) n = 1;
       process.stdout.cursorTo(0);
       process.stdout.clearLine();
-      process.stdout.write(chalk.gray(`  ${(uploadedSize/stat.size*100).toFixed(2)}% uploaded`));
+      process.stdout.write(chalk.gray(`${chalk.white(spin[n++])} ${(uploadedSize/stat.size*100).toFixed(2)}% uploaded [${(uploadedSize / (1024 * 1024)).toFixed(2)} MB]`));
     }
   });
   form.append(pathObj.name, tarStream);
 
   return new Promise((resolve, reject) => {
-    const spin = ' ⢹⢺⢼⣸⣇⡧⡗⡏'.split('');
     const startDate = new Date();
-    let n = 1;
     const es = new EventSource(`${settings.url}/deploys/live`, {headers: {connection: 'keep-alive', 'cache-control': 'no-cache', authorization: `Bearer ${settings.token}`}});
 
-    es.onerror = () => {
-      process.stderr.write('\x1B[?25h'); //show terminal cursor
-      reject(new Error('Deployment error occurred'));
-    };
     es.onmessage = e => {
       let progressState = {};
       try {
