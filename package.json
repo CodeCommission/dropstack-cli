@@ -1,6 +1,6 @@
 {
   "name": "dropstack-cli",
-  "version": "2.3.13",
+  "version": "2.3.14",
   "description": "A CLI to simplify continuous deployments into hybrid clouds.",
   "author": "Mike Bild <mike@codecommission.com>",
   "homepage": "https://github.com/codecommission/dropstack-cli#readme",
@@ -33,7 +33,7 @@
     "fstream": "^1.0.11",
     "minimatch": "^3.0.4",
     "node-fetch": "^1.7.1",
-    "node-version": "^1.0.0",
+    "node-version": "^1.1.0",
     "prompt": "^1.0.0",
     "tar": "^2.2.1",
     "update-notifier": "^2.2.0",
