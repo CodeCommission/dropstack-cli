@@ -1,0 +1,62 @@
+#!/usr/bin/env node
+const fs = require('fs');
+const path = require('path');
+const program = require('commander');
+const boxen = require('boxen');
+const fetch = require('node-fetch');
+const urlRegex = require('url-regex');
+const chalk = require('chalk');
+const credentials = require('../lib/credentials')();
+const configuration = require('../lib/settings')();
+
+program
+  .option('-r, --reset', 'Request password reset')
+  .action(() => account({reset: program.reset}))
+  .parse(process.argv);
+
+if(!program.args.length) account(program.opts());
+
+function account({reset}) {
+  configuration
+  .load()
+  .then(settings => {
+    console.log(chalk.green(`Account information for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`));
+    if(!(settings.token && settings.username)) return Promise.reject(new Error('Sign in failed. Use `dropstack login` to log in with your credentials.'))
+    return settings;
+  })
+  .then(settings => reset ? credentials.reset(settings).then(data => Promise.reject(data)) : Promise.resolve(settings))
+  .then(settings => {
+    return fetch(`${settings.url}/auth/account`, { headers: { 'Authorization': `Bearer ${settings.token}`, timeout: 10, } })
+    .then(response => response.status >= 400 ? Promise.reject(new Error(`Response error: ${response.statusText}`)) : response)
+    .then(response => response.json().then(data => Object.assign({}, data, {version: response.headers.get('version')})))
+    .then(data => Object.assign({}, data, settings));
+  })
+  .then(data => Boolean(data.message) ? Promise.reject(new Error(data.message)) : data)
+  .then(data => {
+    let message = `• ${chalk.gray(`Account ID: ${chalk.white(data.id)}`)}\n`;
+    message += `• ${chalk.gray(`Server Version: ${chalk.white(data.version)}`)}\n`;
+    message += `• ${chalk.gray(`Server URL: ${chalk.white(data.url)}`)}\n`;
+    message += `• ${chalk.gray(`JSON Web Token: ${chalk.white(data.token)}`)}\n`;
+    message += `• ${chalk.gray(`Payment Plan: ${chalk.white(data.metadata && data.metadata.plan)}`)}`;
+    console.log(boxen(message, {padding: 1, borderColor: 'gray', margin: 1}));
+
+    process.exit(0);
+  })
+  .catch(err => {
+    if(err.message === '"We\'ve just sent you an email to reset your password"') {
+      console.log(chalk.red(err.message));
+      return process.exit(0);
+    }
+    if(err.message === 'canceled') {
+      console.log(chalk.yellow('aborted'));
+      return process.exit(0);
+    }
+    if(err.message === 'Sign in failed. Use `dropstack login` to log in with your credentials.'){
+      console.error(chalk.red(`Credentials not found. Use ${chalk.bold('dropstack login')} to verifiy your credentials.`));
+      process.exit(1);
+    }
+
+    console.error(chalk.red(`\nAn unexpected error occurred!\nMessage: ${chalk.gray(err.message)}`));
+    process.exit(1);
+  });
+}
