@@ -11,31 +11,27 @@ const configuration = require('../lib/settings')();
 
 program
   .arguments('<url>')
-  .option('-r, --reset', 'Request password reset')
-  .option('-t, --token', 'Display current JSON Web Token')
-  .action(url => account(Object.assign({url: url}, program)))
+  .action(url => login(Object.assign({url: url, program})))
   .parse(process.argv);
 
-if(!program.args.length) account(program.opts());
+if(!program.args.length) login(program.opts());
 
-function account({url, token, reset}) {
+function login({url}) {
   if(url && !urlRegex({exact: true}).test(url)) {
-    console.log(chalk.red('Invalid DROPSTACK URL. Must be the format http(s)://host.domain.com.'));
+    console.log(chalk.red('Invalid Dropstack-Server-URL. Must be the format http(s)://host.domain.com.'));
     return process.exit(1);
   }
 
-  configuration
-  .load({url, reset})
-  .then(settings => configuration.save(settings))
+  configuration.removeGlobalFile()
+  .then(()  => configuration.load({url}))
   .then(settings => {
     console.log(chalk.green(`Account information for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`));
-    if(!(settings.token && settings.username)) console.log(chalk.yellow(`Enter your email and password to log in or sign up for free!\n`));
+    console.log(chalk.yellow(`Enter your email and password to log in or sign up for free!\n`));
     return settings;
   })
-  .then(settings => reset ? credentials.reset(settings).then(data => Promise.reject(data)) : Promise.resolve(settings))
-  .then(settings => !settings.token ? credentials.inputEmail(settings.username).then(data => Object.assign(settings, data)) : Promise.resolve(settings))
-  .then(settings => !settings.token ? credentials.inputPassword(settings.password).then(data => Object.assign(settings, data)) : Promise.resolve(settings))
-  .then(settings => !settings.token ? credentials.login(settings).catch(() => credentials.signup(settings)).then(data => Object.assign(settings, data)) : Promise.resolve(settings))
+  .then(settings => credentials.inputEmail(settings.username).then(data => Object.assign(settings, data)))
+  .then(settings => credentials.inputPassword(settings.password).then(data => Object.assign(settings, data)))
+  .then(settings => credentials.login(settings).catch(() => credentials.signup(settings)).then(data => Object.assign(settings, data)))
   .then(settings => {
     if(!settings.token) return Promise.reject(new Error('Sign in failed. Use `dropstack login` to log in with your credentials.'));
     if(settings.message) return Promise.reject(new Error(settings.message));
@@ -51,17 +47,11 @@ function account({url, token, reset}) {
   .then(data => Boolean(data.message) ? Promise.reject(new Error(data.message)) : data)
   .then(data => {
     let message = `${chalk.green(`User ${chalk.bold(data.id)} logged in successful!\n\n`)}`;
-    message += `• ${chalk.gray(`Server-Version: ${data.version}`)}`;
-    if(token) message = `${chalk.gray(`JWT: ${data.token}`)}`;
+    message += `• ${chalk.gray(`Server Version: ${chalk.white(data.version)}`)}`;
     console.log(boxen(message, {padding: 1, borderColor: 'gray', margin: 1}));
-
     process.exit(0);
   })
   .catch(err => {
-    if(err.message === '"We\'ve just sent you an email to reset your password"') {
-      console.log(chalk.red(err.message));
-      return process.exit(0);
-    }
     if(err.message === 'canceled') {
       console.log(chalk.yellow('aborted'));
       return process.exit(0);
