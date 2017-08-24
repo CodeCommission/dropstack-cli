@@ -10,6 +10,7 @@ const minimatch = require('minimatch');
 const fstream = require('fstream');
 const fetch = require('node-fetch');
 const copyPaste = require('copy-paste');
+const urlRegex = require('url-regex');
 const FormData = require('form-data');
 const EventSource = require('eventsource');
 const credentials = require('../lib/credentials')();
@@ -34,6 +35,11 @@ program
 deploy(Object.assign(program.opts(), {folder: program.args.length === 0 ? process.cwd() : program.args[0] }));
 
 function deploy({folder, token, variables, instances, alias, https, type, url, environment, aliveEndpoint, verbose, excludes}){
+  if(url && !urlRegex({exact: true}).test(url)) {
+    console.log(chalk.red('Invalid Dropstack-Server-URL. Must be the format http(s)://host.domain.com.'));
+    return process.exit(1);
+  }
+
   process.stderr.write('\x1B[?25l'); //hide terminal cursor
   configuration = configurationSettings(`.dropstack${environment ? '.' + environment + '.' : '.'}json`);
 
@@ -61,7 +67,7 @@ function deploy({folder, token, variables, instances, alias, https, type, url, e
   configuration
     .load()
     .then(settings => {
-      console.log(`Deploying ${chalk.green.underline(settings.alias || settings.name || '-')} for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`);
+      console.log(`Deploying ${chalk.green.underline(settings.alias || settings.name || '-')} for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(url || settings.url || '-')}`);
       if(verbose) {
         console.log(chalk.gray(`${settings.name || '--------'} packing ...`));
       } else {
@@ -78,17 +84,16 @@ function deploy({folder, token, variables, instances, alias, https, type, url, e
 
 function sync({tarPath, token, variables, instances, alias, type, https, url, aliveEndpoint, verbose, excludes}){
   configuration
-  .load({variables, tarPath, instances, token, alias, type, https, url, aliveEndpoint, excludes})
-  .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed. Use `dropstack login` to log in with your credentials.')) : settings)
+  .load({variables, tarPath, instances, alias, type, https, aliveEndpoint, excludes})
+  // .then(settings => !(token && settings.username) ? Promise.reject(new Error('Sign in failed')) : settings)
   .then(settings => {
     if(settings.message) return Promise.reject(new Error(settings.message));
     return settings;
   })
-  .then(settings => deployment(settings, verbose))
+  .then(settings => deployment(settings, verbose, token, url))
   .then(settings => configuration.save(settings))
   .then(settings => {
-    let message = chalk.green(`Deployment ${chalk.bold(settings.name || '-')} completed - ${settings && settings.instances && `${settings.instances} running instance(s)!\n`}`);
-    message += '\n';
+    let message = chalk.green(`Deployment ${chalk.bold(settings.name || '-')} completed - ${settings && settings.instances && `${settings.instances} running instance(s)!`}\n\n`);
     message += `• URL: ${chalk.bold(`https://${settings.serviceUrl}`)}\n`;
     if(settings && settings.alias) message += `• Alias: ${chalk.bold(settings.alias)}\n`;
     message += `\n${chalk.gray('URL copied to clipboard.')}`;
@@ -96,30 +101,64 @@ function sync({tarPath, token, variables, instances, alias, type, https, url, al
     console.log(boxen(message, {padding: 1, borderColor: 'gray', margin: 1}));
   })
   .catch(err => {
+    process.stderr.write('\x1B[?25h'); //show terminal cursor
+
     if(err.message === 'canceled') {
-      console.log(chalk.yellow('aborted'));
+      console.log(chalk.yellow('\nAborted operation.'));
       return process.exit(0);
     }
+
     if(err.message.indexOf('building error') !== -1) {
-      console.error(chalk.red(`\n${err.message}`))
-      console.error(chalk.red(`Verify your Dockerfile, please!`))
-      return process.exit(1);
-    }
-    if(err.message === 'Sign in failed. Use `dropstack login` to log in with your credentials.'){
-      console.error(chalk.red(`Credentials not found. Use ${chalk.bold('dropstack login')} to verifiy your credentials.`));
-      process.exit(1);
-    }
-    if(err.message.indexOf('Deployment error occurred') !== -1) {
-      console.error(chalk.red(`\n${err.message}. Retry please!`))
+      console.error(chalk.red(`\nVerify your Dockerfile, please!\nError: ${err.message}`))
       return process.exit(1);
     }
 
-    console.error(chalk.red(`\nAn unexpected error occurred!\nMessage: ${chalk.gray(err.message)}`));
+    if(err.message === 'Sign in failed') {
+      console.error(chalk.red(`\nCredentials not found. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
+      process.exit(1);
+    }
+
+    if(err.message === 'invalid signature') {
+      console.error(chalk.red(`\nJWT signature invalid. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
+      process.exit(1);
+    }
+
+    if(err.message === 'jwt malformed') {
+      console.error(chalk.red(`\nJWT signature invalid. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
+      process.exit(1);
+    }
+
+    if(err.message === 'JWT auth invalid') {
+      console.error(chalk.red(`\JWT auth invalid. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
+      process.exit(1);
+    }
+
+    if(err.message.indexOf('Deployment error occurred') !== -1) {
+      console.error(chalk.red(`\nSorry, deployment error occurred. Retry later please!\nError: ${err.message}.`))
+      return process.exit(1);
+    }
+
+    if(err.message === 'Unexpected server communication error') {
+      console.error(chalk.red(`\nSorry, unexpected server communication error. Retry later please!`))
+      return process.exit(1);
+    }
+
+    if(err.message === 'Unauthorized') {
+      console.error(chalk.red(`\nUnauthorized. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
+      process.exit(1);
+    }
+
+    if(err.message === 'Service already assigned') {
+      console.error(chalk.red(`\nService already assigned. Wrong account? Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
+      process.exit(1);
+    }
+
+    console.error(chalk.red(`\nAn unexpected error occurred!\nError: ${chalk.gray(err.message)}`));
     process.exit(1);
   });
 }
 
-function deployment(settings, verbose) {
+function deployment(settings, verbose, token, url) {
   const pathObj = path.parse(settings.tarPath);
   const form = new FormData();
   const startDate = new Date();
@@ -150,29 +189,30 @@ function deployment(settings, verbose) {
     if(verbose) {
       console.log(chalk.gray(`${settings.name || '--------'} ${(uploadedSize/stat.size*100).toFixed(2)}% uploaded [${(uploadedSize / (1024 * 1024)).toFixed(2)} MB]`));
     } else {
-      if(n === 8) n = 1;
+      if(n >= 8) n = 1;
       process.stdout.cursorTo(0);
       process.stdout.clearLine();
-      process.stdout.write(chalk.gray(`${chalk.white(spin[n++])} ${(uploadedSize/stat.size*100).toFixed(2)}% uploaded [${(uploadedSize / (1024 * 1024)).toFixed(2)} MB]`));
+      process.stdout.write(chalk.gray(`${chalk.white(spin[++n])} ${(uploadedSize/stat.size*100).toFixed(2)}% uploaded [${(uploadedSize / (1024 * 1024)).toFixed(2)} MB]`));
     }
   });
   form.append(pathObj.name, tarStream);
 
   return new Promise((resolve, reject) => {
     const startDate = new Date();
-    const es = new EventSource(`${settings.url}/deploys/live`, {headers: {connection: 'keep-alive', 'cache-control': 'no-cache', authorization: `Bearer ${settings.token}`}});
+    let eventSourceReadyStateWasConnected = 0;
+    const es = new EventSource(`${url || settings.url}/deploys/live`, {headers: {connection: 'keep-alive', 'cache-control': 'no-cache', authorization: `Bearer ${token || settings.token}`}});
+    es.setMaxListeners(0);
+
+    es.onerror = () => {
+      if(!(token && settings.token)) return reject(new Error('Sign in failed'));
+      if(!eventSourceReadyStateWasConnected) return reject(new Error('Unexpected server communication error'));
+    }
 
     es.onmessage = e => {
       let progressState = {};
       try {
         progressState = JSON.parse(e.data)
       } catch(e) {}
-
-      if(!verbose) {
-        if(n === 8) n = 1;
-        process.stdout.cursorTo(0);
-        process.stdout.write(`${spin[n++]}`);
-      }
 
       if(progressState && progressState.message) {
         es.close();
@@ -182,7 +222,7 @@ function deployment(settings, verbose) {
       if(progressState && progressState.deployProgress === 'registrated') {
         process.stdout.cursorTo(0);
         process.stdout.clearLine();
-        process.stdout.write(chalk.gray(`Deployment ${progressState.deployProgress} [${(new Date().getTime() - startDate.getTime()) / 1000}s]`));
+        process.stdout.write(chalk.gray(`Deployment ${progressState.deployProgress} [${((new Date().getTime() - startDate.getTime()) / 1000).toFixed(2)}s]`));
         process.stderr.write('\x1B[?25h'); //show terminal cursor
         es.close();
         settings.name = progressState.serviceName;
@@ -196,24 +236,29 @@ function deployment(settings, verbose) {
         copyPaste.copy(`https://${progressState.serviceAlias || progressState.serviceUrl || ''}`);
         return resolve(settings);
       }
+
+      const progressMessage = progressState.buildImageProgress || progressState.deployProgress || progressState.pushImageProgress || '';
       if(progressState && progressState.serviceName && verbose) {
-        console.log(chalk.gray(`${progressState.serviceName} ${progressState.buildImageProgress || progressState.deployProgress || progressState.pushImageProgress} ${(progressState.log || '').replace('\n', '')}`))
+        console.log(chalk.gray(`${progressState.serviceName} ${progressMessage} ${(progressState.log || '').replace('\n', '')}`))
       } else {
-        if(progressState.deployProgress) {
-          process.stdout.cursorTo(2);
-          process.stdout.clearLine();
-          process.stdout.write(chalk.gray(`${capitalizeFirstLetter(progressState.deployProgress)} [${(new Date().getTime() - startDate.getTime()) / 1000}s]`));
-        }
+        if(n >= 8) n = 1;
+        process.stdout.cursorTo(0);
+        process.stdout.clearLine();
+        process.stdout.write(`${spin[++n]}`);
+        process.stdout.cursorTo(2);
+        process.stdout.write(chalk.gray(`${capitalizeFirstLetter(progressMessage)} [${((new Date().getTime() - startDate.getTime()) / 1000).toFixed(2)}s]`));
       }
     };
 
-    es.onopen = e => {
-      fetch(`${settings.url}/deploys/${settings.name || ''}`, {
+    es.onopen = () => {
+      eventSourceReadyStateWasConnected = es.readyState;
+      fetch(`${url || settings.url}/deploys/${settings.name || ''}`, {
         method: 'POST',
         body: form,
-        headers: { Authorization: `Bearer ${settings.token}`, }
+        headers: { Authorization: `Bearer ${token || settings.token}`, }
       })
       .then(res => res.json())
+      .then(data => (data.error || data.message) ? Promise.reject(new Error(data.error || data.message)) : Promise.resolve(data))
       .then(data => {
         settings.name = data.serviceName;
         settings.serviceUrl = data.serviceUrl;

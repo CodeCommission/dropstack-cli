@@ -22,7 +22,7 @@ function logout() {
     process.exit(0);
   })
   .catch(err => {
-    console.error(chalk.red(`\nAn unexpected error occurred!\nMessage: ${chalk.gray(err.message)}`));
+    console.error(chalk.red(`\nAn unexpected error occurred!\nError: ${chalk.gray(err.message)}`));
     process.exit(1);
   })
 }

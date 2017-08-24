@@ -10,18 +10,19 @@ const credentials = require('../lib/credentials')();
 const configuration = require('../lib/settings')();
 
 program
-  .option('-r, --reset', 'Request password reset')
-  .action(() => account({reset: program.reset}))
+  .option('-r, --reset', 'Request an account password reset.')
+  .option('-t, --token', 'Show JSON Web Token.')
+  .action(() => account({reset: program.reset, token: program.token}))
   .parse(process.argv);
 
 if(!program.args.length) account(program.opts());
 
-function account({reset}) {
+function account({reset, token}) {
   configuration
   .load()
   .then(settings => {
     console.log(chalk.green(`Account information for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`));
-    if(!(settings.token && settings.username)) return Promise.reject(new Error('Sign in failed. Use `dropstack login` to log in with your credentials.'))
+    if(!(settings.token && settings.username)) return Promise.reject(new Error('Sign in failed'))
     return settings;
   })
   .then(settings => reset ? credentials.reset(settings).then(data => Promise.reject(data)) : Promise.resolve(settings))
@@ -33,30 +34,42 @@ function account({reset}) {
   })
   .then(data => Boolean(data.message) ? Promise.reject(new Error(data.message)) : data)
   .then(data => {
-    let message = `• ${chalk.gray(`Account ID: ${chalk.white(data.id)}`)}\n`;
-    message += `• ${chalk.gray(`Server Version: ${chalk.white(data.version)}`)}\n`;
-    message += `• ${chalk.gray(`Server URL: ${chalk.white(data.url)}`)}\n`;
-    message += `• ${chalk.gray(`JSON Web Token: ${chalk.white(data.token)}`)}\n`;
-    message += `• ${chalk.gray(`Payment Plan: ${chalk.white(data.metadata && data.metadata.plan)}`)}`;
+    let message = `${chalk.gray(`${pad(15, 'Account ID', ' ')}: ${chalk.white(data.id)}`)}\n`;
+    message += `${chalk.gray(`${pad(15, 'Server Version', ' ')}: ${chalk.white(data.version)}`)}\n`;
+    message += `${chalk.gray(`${pad(15, 'Server URL', ' ')}: ${chalk.white(data.url)}`)}\n`;
+    message += `${chalk.gray(`${pad(15, 'Plan', ' ')}: ${chalk.white(data.metadata && data.metadata.plan)}\n`)}`;
+    message += `${chalk.gray(`${pad(15, 'Team (beta)', ' ')}: ${chalk.white(data.metadata && data.metadata.team || '-')}`)}`;
+    if(token) message += `\n${chalk.gray(`${pad(15, 'JSON Web Token', ' ')}: ${chalk.white(data.token)}`)}`;
     console.log(boxen(message, {padding: 1, borderColor: 'gray', margin: 1}));
 
     process.exit(0);
   })
   .catch(err => {
-    if(err.message === '"We\'ve just sent you an email to reset your password"') {
-      console.log(chalk.red(err.message));
+    if(err.message === 'We\'ve just sent you an email to reset your password.') {
+      console.log(`\n${chalk.yellow(err.message)}`);
       return process.exit(0);
     }
+
     if(err.message === 'canceled') {
-      console.log(chalk.yellow('aborted'));
+      console.log(chalk.yellow('\nAborted operation.'));
       return process.exit(0);
     }
-    if(err.message === 'Sign in failed. Use `dropstack login` to log in with your credentials.'){
-      console.error(chalk.red(`Credentials not found. Use ${chalk.bold('dropstack login')} to verifiy your credentials.`));
+
+    if(err.message === 'Sign in failed'){
+      console.error(chalk.red(`\nCredentials not found. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
       process.exit(1);
     }
 
-    console.error(chalk.red(`\nAn unexpected error occurred!\nMessage: ${chalk.gray(err.message)}`));
+    if(err.message === 'Unauthorized'){
+      console.error(chalk.red(`\nUnauthorized. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
+      process.exit(1);
+    }
+
+    console.error(chalk.red(`\nAn unexpected error occurred!\nError: ${chalk.gray(err.message)}`));
     process.exit(1);
   });
+}
+
+function pad(width, string, padding) {
+  return (width <= string.length) ? string : pad(width, string + padding, padding)
 }

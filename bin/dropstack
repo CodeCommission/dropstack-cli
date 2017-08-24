@@ -11,6 +11,11 @@ if (nodeVersion.major < 6) {
   process.exit(1);
 }
 
+process.on('SIGTERM', () => {
+  process.stderr.write('\x1B[?25h'); //show terminal cursor
+  process.exit(0);
+});
+
 process.on('SIGINT', () => {
   process.stderr.write('\x1B[?25h'); //show terminal cursor
   process.exit(0);
@@ -18,14 +23,15 @@ process.on('SIGINT', () => {
 
 program
   .version(`${pkg.name} v${pkg.version}`)
-  .command('login <url>', 'Log-in to URL given deployment environment. (default https://api.cloud.dropstack.run)')
-  .command('logout', 'Log-out from current deployment environment.')
+  .command('login <url>', 'Log-in or switch to deployment environment. (default https://api.cloud.dropstack.run)')
+  .command('logout', 'Log-out from deployment environment.')
   .command('account', 'Show account informations.')
-  .command('deploy [folder]', 'Deploy to current deployment environment.').alias('add')
-  .command('list', 'List your active deployment from current environment.').alias('ls')
-  .command('remove [name]', 'Remove deployment from current environment.').alias('rm')
+  .command('activities', 'Show account activities.').alias('activity')
+  .command('deploy [folder]', 'Deploy to environment.').alias('add')
+  .command('list', 'List your active environment deployments.').alias('ls')
+  .command('remove [name]', 'Remove deployment from environment.').alias('rm')
   .command('ssl [name]', 'Manage SSL for deployments.')
-  .command('alias [name]', 'Manage domain for deployments.')
+  .command('domain [name]', 'Manage domain for deployments.').alias('alias')
   .command('logs [name]', 'Show StdOut/StdErr logs for deployment.').alias('log')
   .command('metric [name]', 'Show metrics for deployments.')
   .command('scale [name]', 'Scale instances for deployments.')

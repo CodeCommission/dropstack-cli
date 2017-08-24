@@ -11,12 +11,13 @@ const configuration = require('../lib/settings')();
 
 program
   .arguments('<url>')
-  .action(url => login(Object.assign({url: url, program})))
+  .option('-t, --token', 'Show JSON Web Token.')
+  .action(url => login(Object.assign({url: url, token: program.token})))
   .parse(process.argv);
 
 if(!program.args.length) login(program.opts());
 
-function login({url}) {
+function login({url, token}) {
   if(url && !urlRegex({exact: true}).test(url)) {
     console.log(chalk.red('Invalid Dropstack-Server-URL. Must be the format http(s)://host.domain.com.'));
     return process.exit(1);
@@ -33,8 +34,8 @@ function login({url}) {
   .then(settings => credentials.inputPassword(settings.password).then(data => Object.assign(settings, data)))
   .then(settings => credentials.login(settings).catch(() => credentials.signup(settings)).then(data => Object.assign(settings, data)))
   .then(settings => {
-    if(!settings.token) return Promise.reject(new Error('Sign in failed. Use `dropstack login` to log in with your credentials.'));
-    if(settings.message) return Promise.reject(new Error(settings.message));
+    if(!settings.token) return Promise.reject(new Error('Sign in failed'));
+    if(settings.error || settings.message) return Promise.reject(new Error(settings.message));
     return settings;
   })
   .then(settings => configuration.save(settings))
@@ -44,28 +45,44 @@ function login({url}) {
     .then(response => response.json().then(data => Object.assign({}, data, {version: response.headers.get('version')})))
     .then(data => Object.assign({}, data, settings));
   })
-  .then(data => Boolean(data.message) ? Promise.reject(new Error(data.message)) : data)
+  .then(data => Boolean(data.error || data.message) ? Promise.reject(new Error(data.message)) : data)
   .then(data => {
     let message = `${chalk.green(`User ${chalk.bold(data.id)} logged in successful!\n\n`)}`;
-    message += `• ${chalk.gray(`Server Version: ${chalk.white(data.version)}`)}`;
+    message += `${chalk.gray(`${pad(15, 'Account ID', ' ')}: ${chalk.white(data.id)}`)}\n`;
+    message += `${chalk.gray(`${pad(15, 'Server Version', ' ')}: ${chalk.white(data.version)}`)}\n`;
+    message += `${chalk.gray(`${pad(15, 'Server URL', ' ')}: ${chalk.white(data.url)}`)}\n`;
+    message += `${chalk.gray(`${pad(15, 'Plan', ' ')}: ${chalk.white(data.metadata && data.metadata.plan)}\n`)}`;
+    message += `${chalk.gray(`${pad(15, 'Team (beta)', ' ')}: ${chalk.white(data.metadata && data.metadata.team || '-')}`)}`;
+    if(token) message += `\n${chalk.gray(`${pad(15, 'JSON Web Token', ' ')}: ${chalk.white(data.token)}`)}`;
     console.log(boxen(message, {padding: 1, borderColor: 'gray', margin: 1}));
     process.exit(0);
   })
   .catch(err => {
     if(err.message === 'canceled') {
-      console.log(chalk.yellow('aborted'));
+      console.log(chalk.yellow('\nAborted operation.'));
       return process.exit(0);
     }
+
     if(err.message === 'The user already exists') {
-      console.error(chalk.red(`Sign in failed.`));
+      console.error(chalk.red(`\nSign in failed. This account already exists.`));
       return process.exit(1);
     }
-    if(err.message === 'Sign in failed. Use `dropstack login` to log in with your credentials.'){
-      console.error(chalk.red(`Credentials not found. Use ${chalk.bold('dropstack login')} to verifiy your credentials.`));
+
+    if(err.message === 'Sign in failed') {
+      console.error(chalk.red(`\nCredentials not found. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
       process.exit(1);
     }
 
-    console.error(chalk.red(`\nAn unexpected error occurred!\nMessage: ${chalk.gray(err.message)}`));
+    if(err.message === 'Unauthorized') {
+      console.error(chalk.red(`\nUnauthorized. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
+      process.exit(1);
+    }
+
+    console.error(chalk.red(`\nAn unexpected error occurred!\nError: ${chalk.gray(err.message)}`));
     process.exit(1);
   });
+}
+
+function pad(width, string, padding) {
+  return (width <= string.length) ? string : pad(width, string + padding, padding)
 }

@@ -20,23 +20,36 @@ function metrics({name, live}){
   configuration
   .load()
   .then(settings => { console.log(`Metrics for ${chalk.green.underline(settings.username)}`); return settings;})
-  .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed. Use `dropstack login` to log in with your credentials.')) : settings)
+  .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed')) : settings)
   .then(settings => fetch(`${settings.url}/metrics`, {headers: {Authorization: `Bearer ${settings.token}`}})
     .then(response => response.status >= 400 ? Promise.reject(new Error(`Response error: ${response.statusText}`)) : response)
     .then(response => response.json()))
   .then(data => Boolean(data.message) ? Promise.reject(new Error(data.message)) : data)
   .then(data => {
-      console.log(chalk.gray(`| SUMMARY  | Bytes in: ${data.inBytes || 0} | Bytes out: ${data.outBytes || 0} |`));
-      Object.keys(data.services)
-      .map(x => data.services[x])
-      .forEach(x => console.log(chalk.gray(`| ${x.name} | Bytes in: ${x.inBytes || 0} | Bytes out: ${x.outBytes || 0} |`)));
+    console.log(chalk.gray(`| SUMMARY  | Bytes in: ${data.inBytes || 0} | Bytes out: ${data.outBytes || 0} |`));
+    Object.keys(data.services)
+    .map(x => data.services[x])
+    .forEach(x => console.log(chalk.gray(`| ${x.name} | Bytes in: ${x.inBytes || 0} | Bytes out: ${x.outBytes || 0} |`)));
   })
   .catch(err => {
-    if(err.message === 'Sign in failed. Use `dropstack login` to log in with your credentials.'){
-      console.error(chalk.red(`Credentials not found. Use ${chalk.bold('dropstack login')} to verifiy your credentials.`));
+    process.stderr.write('\x1B[?25h'); //show terminal cursor
+
+    if(err.message === 'canceled') {
+      console.log(chalk.yellow('\nAborted operation.'));
+      return process.exit(0);
+    }
+
+    if(err.message === 'Sign in failed'){
+      console.error(chalk.red(`\nCredentials not found. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
       process.exit(1);
     }
-    console.error(chalk.red(`\nAn unexpected error occurred!\nMessage: ${chalk.gray(err.message)}`));
+
+    if(err.message === 'Response error: Not Found'){
+      console.error(chalk.red(`\nNo metric found. Retry later please!`));
+      process.exit(1);
+    }
+
+    console.error(chalk.red(`\nAn unexpected error occurred!\nError: ${chalk.gray(err.message)}`));
     process.exit(1);
   });
 }
@@ -45,16 +58,16 @@ function metricsLive(name){
   configuration
   .load()
   .then(settings => { console.log(`Live metrics for ${chalk.green.underline(settings.username)}`); return settings;})
-  .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed. Use `dropstack login` to log in with your credentials.')) : settings)
+  .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed')) : settings)
   .then(settings => {
     process.stderr.write('\x1B[?25l'); //hide terminal cursor
     const es = new EventSource(`${settings.url}/metrics/live`, {headers: {Connection: 'keep-alive', 'cache-control': 'no-cache', Authorization: `Bearer ${settings.token}`}});
     process.stdout.write(chalk.gray(`Connecting...`));
 
     es.onopen = () => {
-      process.stdout.clearLine();
       process.stdout.cursorTo(0);
-      process.stdout.write(`Connected`);
+      process.stdout.clearLine();
+      process.stdout.write(`${chalk.green('Connected!')} ${chalk.gray('Receiving data ...')}`);
     };
 
     es.onmessage = e => {
@@ -64,12 +77,11 @@ function metricsLive(name){
       } catch(e){};
       if(!data.services) return;
 
-      process.stdout.cursorTo(0);
+      const allMethodsCount = methodCounts(data.methods);
       process.stdout.clearLine();
-      console.log(chalk.gray(`| SUMMARY  | Bytes in: ${data.inBytes || 0} | Bytes out: ${data.outBytes || 0} |`));
-
+      process.stdout.cursorTo(0);
+      console.log(chalk.green(`Requests: ${allMethodsCount} Incoming: ${(data.inBytes / (1024 * 1024)).toFixed(2) || 0} MB Outgoing: ${(data.outBytes / (1024 * 1024)).toFixed(2) || 0} MB`));
       const services = Object.keys(data.services).map(x => data.services[x]);
-
       services
       .forEach(x => {
         process.stdout.cursorTo(0);
@@ -80,14 +92,45 @@ function metricsLive(name){
       process.stdout.moveCursor(0, (services.length+1)*-1);
     };
 
-    es.onerror = () => console.log('Connection error. Retry please.');
+    es.onerror = () => console.log(chalk.red('\nSorry, unexpected server communication error. Retry later please!'));
   })
   .catch(err => {
-    if(err.message === 'Sign in failed. Use `dropstack login` to log in with your credentials.'){
-      console.error(chalk.red(`Credentials not found. Use ${chalk.bold('dropstack login')} to verifiy your credentials.`));
+    process.stderr.write('\x1B[?25h'); //show terminal cursor
+
+    if(err.message === 'canceled') {
+      console.log(chalk.yellow('\nAborted operation.'));
+      return process.exit(0);
+    }
+
+    if(err.message === 'Sign in failed') {
+      console.error(chalk.red(`\nCredentials not found. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
       process.exit(1);
     }
-    console.error(chalk.red(`\nAn unexpected error occurred ${chalk.gray(err.message)}`));
+
+    if(err.message === 'Unauthorized') {
+      console.error(chalk.red(`\nUnauthorized. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
+      process.exit(1);
+    }
+
+    if(err.message === 'Service not found') {
+      console.error(chalk.red(`\nService not found. Wrong account? Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
+      process.exit(1);
+    }
+
+    if(err.message === 'Server communication error') {
+      console.error(chalk.red(`\nSorry, server communication error occured. Retry later please!`))
+      return process.exit(1);
+    }
+
+    console.error(chalk.red(`\nAn unexpected error occurred\nError: ${chalk.gray(err.message)}`));
     process.exit(1);
   });
+}
+
+function pad(width, string, padding) {
+  return (width <= string.length) ? string : pad(width, string + padding, padding)
+}
+
+function methodCounts (data) {
+  return Object.keys(data).reduce((s, e) => s += data[e], 0)
 }

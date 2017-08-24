@@ -19,7 +19,7 @@ function log({name, follow}) {
   configuration
   .load()
   .then(settings => { console.log(`Logs ${chalk.green.underline(name || settings.name || '-')} for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`); return settings;})
-  .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed. Use `dropstack login` to log in with your credentials.')) : settings)
+  .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed')) : settings)
   .then(settings => {
     process.stderr.write('\x1B[?25l'); //hide terminal cursor
     const es = new EventSource(`${settings.url}/deploys/${name || settings.serviceName}/logs?${!follow ? 'follow='+follow : 'follow=true'}`, {headers: {connection: 'keep-alive', 'cache-control': 'no-cache', authorization: `Bearer ${settings.token}`}});
@@ -30,15 +30,34 @@ function log({name, follow}) {
     es.onmessage = e => console.log(e.data)
   })
   .catch(err => {
-    if(err.message === 'Error fetching service'){
-      console.error(chalk.red(`Deployment not found`));
+    process.stderr.write('\x1B[?25h'); //show terminal cursor
+
+    if(err.message === 'canceled') {
+      console.log(chalk.yellow('\nAborted operation.'));
+      return process.exit(0);
+    }
+
+    if(err.message === 'Error fetching service') {
+      console.error(chalk.red(`\nService not found. Wrong account? Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
       process.exit(1);
     }
-    if(err.message === 'Sign in failed. Use `dropstack login` to log in with your credentials.'){
-      console.error(chalk.red(`Credentials not found. Use ${chalk.bold('dropstack login')} to verifiy your credentials.`));
+
+    if(err.message === 'Sign in failed') {
+      console.error(chalk.red(`\nCredentials not found. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
       process.exit(1);
     }
-    console.error(chalk.red(`\nAn unexpected error occurred!\nMessage: ${chalk.gray(err.message)}`));
+
+    if(err.message === 'Unauthorized') {
+      console.error(chalk.red(`\nUnauthorized. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
+      process.exit(1);
+    }
+
+    if(err.message === 'Service not found') {
+      console.error(chalk.red(`\nService not found. Wrong account? Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
+      process.exit(1);
+    }
+
+    console.error(chalk.red(`\nAn unexpected error occurred!\nError: ${chalk.gray(err.message)}`));
     process.exit(1);
   });
 }

@@ -18,36 +18,54 @@ if(!program.args.length) scale(program.opts());
 
 function scale({name, instances}) {
   if(!instances) {
-    console.error(chalk.red(`Enter a number of instances of deployment name. Use 'dropstack scale -h' for more informations.`));
+    console.error(chalk.red(`Invalid number of instances.\nEnter ${chalk.bold('dropstack help scale')} to read more introductions.`));
     process.exit(1);
   }
 
   configuration
   .load()
   .then(settings => { console.log(`Scaling ${chalk.green.underline(name || settings.name || '-')} for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`); return settings;})
-  .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed. Use `dropstack login` to log in with your credentials.')) : settings)
-  .then(settings => Boolean(name || settings.name) ? settings : Promise.reject(`Enter a deployment name. Use 'dropstack scale -h' for more informations.`))
+  .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed')) : settings)
+  .then(settings => Boolean(name || settings.name) ? settings : Promise.reject(`Enter a deployment name`))
   .then(settings => fetch(`${settings.url}/deploys/${name || settings.name}/scale`, { method: 'PUT', body: JSON.stringify({serviceInstances: instances || ''}), headers: { Authorization: `Bearer ${settings.token}`, 'Content-Type': 'application/json' } })
     .then(response => response.status >= 400 ? Promise.reject(new Error(`Response error: ${response.statusText}`)) : response)
-    .then(response => response.json()))
-  .then(data => Boolean(data.message) ? Promise.reject(new Error(data.message)) : data)
+    .then(response => response.json())
+    .then(data => Object.assign(settings, data))
+    .then(data => Boolean(data.message) ? Promise.reject(new Error(data.message)) : data)
+    .then(data => configuration.load().then(settings => configuration.save(Object.assign(settings, {instances: data.serviceInstances})))))
   .then(data => {
-    copyPaste.copy(`https://${data.serviceAlias || data.serviceUrl || ''}`);
+    copyPaste.copy(`https://${data.domain || data.alias || data.serviceUrl || ''}`);
 
-    let message = chalk.green(`Scale ${chalk.bold(data.serviceName || data.serviceName)} updated - ${data && data.serviceInstances && `${data.serviceInstances} running instance(s)!\n`}`);
-    message += '\n';
+    let message = chalk.green(`Scale for ${chalk.bold(data.name || data.name)} updated - ${data.instances} running instance(s)!\n\n`);
     message += `• URL: ${chalk.bold(`https://${data.serviceUrl}`)}\n`;
-    if(data && data.serviceAlias) message += `• Alias: ${chalk.bold(data.serviceAlias)}\n`;
-    message += `\n${chalk.gray('URL copied to clipboard.')}`;
-    console.log();
+    if(data.domain || data.alias) message += `• Domain: ${chalk.bold('http://' + (data.domain || data.alias))}\n`;
+    message += `\n${chalk.gray('URL copied to clipboard.')}\n`;
     console.log(boxen(message, {padding: 1, borderColor: 'gray', margin: 1}));
+
+    process.exit(0);
   })
   .catch(err => {
-    if(err.message === 'Sign in failed. Use `dropstack login` to log in with your credentials.'){
-      console.error(chalk.red(`Credentials not found. Use ${chalk.bold('dropstack login')} to verifiy your credentials.`));
+    if(err.message === 'canceled') {
+      console.log(chalk.yellow('\nAborted operation.'));
+      return process.exit(0);
+    }
+
+    if(err.message === 'Sign in failed') {
+      console.error(chalk.red(`\nCredentials not found. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
       process.exit(1);
     }
-    console.error(chalk.red(`\nAn unexpected error occurred!\nMessage: ${chalk.gray(err.message)}`));
+
+    if(err.message === 'Unauthorized') {
+      console.error(chalk.red(`\nUnauthorized. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
+      process.exit(1);
+    }
+
+    if(err.message === 'Service not found') {
+      console.error(chalk.red(`\nService not found. Wrong account? Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
+      process.exit(1);
+    }
+
+    console.error(chalk.red(`\nAn unexpected error occurred!\nError: ${chalk.gray(err.message)}`));
     process.exit(1);
   });
 }

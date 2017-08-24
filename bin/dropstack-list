@@ -14,7 +14,7 @@ function list(){
   configuration
   .load()
   .then(settings => { console.log(`Deployments for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}\n`); return settings;})
-  .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed. Use `dropstack login` to log in with your credentials.')) : settings)
+  .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed')) : settings)
   .then(settings => fetch(`${settings.url}/deploys`, { headers: { Authorization: `Bearer ${settings.token}`, } })
     .then(response => response.status >= 400 ? Promise.reject(new Error(`Response error: ${response.statusText}`)) : response)
     .then(response => response.json()))
@@ -26,14 +26,25 @@ function list(){
   .then(data => (data || []).map(x => `${chalk.gray(pad(7, x.serviceType.toUpperCase(), ' '))} | ${chalk.gray(pad(5, x.serviceInstances, ' '))} | ${chalk.green(pad(9, x.serviceName, ' '))} | ${chalk.bold(pad(45,  `https://${x.serviceUrl || '-'}`, ' '))}`))
   .then(data => {
     if(data.length > 0) return data.map(x => console.log(x));
-    console.log(chalk.gray('\nNothing deployed'));
+    console.log(chalk.gray('Nothing deployed'));
   })
   .catch(err => {
-    if(err.message === 'Sign in failed. Use `dropstack login` to log in with your credentials.'){
-      console.error(chalk.red(`Credentials not found. Use ${chalk.bold('dropstack login')} to verifiy your credentials.`));
+    if(err.message === 'canceled') {
+      console.log(chalk.yellow('\nAborted operation.'));
+      return process.exit(0);
+    }
+
+    if(err.message === 'Sign in failed') {
+      console.error(chalk.red(`\nCredentials not found. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
       process.exit(1);
     }
-    console.error(chalk.red(`\nAn unexpected error occurred!\nMessage: ${chalk.gray(err.message)}`));
+
+    if(err.message === 'Unauthorized') {
+      console.error(chalk.red(`\nUnauthorized. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
+      process.exit(1);
+    }
+
+    console.error(chalk.red(`\nAn unexpected error occurred!\nError: ${chalk.gray(err.message)}`));
     process.exit(1);
   });
 }
