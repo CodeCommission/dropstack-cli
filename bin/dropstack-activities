@@ -1,0 +1,60 @@
+#!/usr/bin/env node
+const fs = require('fs');
+const path = require('path');
+const program = require('commander');
+const chalk = require('chalk');
+const EventSource = require('eventsource');
+const configuration = require('../lib/settings')();
+
+program
+  .action(() => activities())
+  .parse(process.argv);
+
+if(!program.args.length) activities(program.opts());
+
+function activities() {
+  configuration
+  .load()
+  .then(settings => { console.log(`Activities for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`); return settings;})
+  .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed')) : settings)
+  .then(settings => {
+    process.stderr.write('\x1B[?25l'); //hide terminal cursor
+    const es = new EventSource(`${settings.url}/activities/live`, {headers: {connection: 'keep-alive', 'cache-control': 'no-cache', authorization: `Bearer ${settings.token}`}});
+    es.onerror = () => {
+      process.stderr.write('\x1B[?25h'); //show terminal cursor
+      console.error('Activity-Stream error occurred. Retry...');
+    }
+    es.onmessage = e => console.log(e.data)
+  })
+  .catch(err => {
+    process.stderr.write('\x1B[?25h'); //show terminal cursor
+
+    if(err.message === 'canceled') {
+      console.log(chalk.yellow('\nAborted operation.'));
+      return process.exit(0);
+    }
+
+    if(err.message === 'Error fetching service') {
+      console.error(chalk.red(`\nService not found. Wrong account? Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
+      process.exit(1);
+    }
+
+    if(err.message === 'Sign in failed') {
+      console.error(chalk.red(`\nCredentials not found. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
+      process.exit(1);
+    }
+
+    if(err.message === 'Unauthorized') {
+      console.error(chalk.red(`\nUnauthorized. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
+      process.exit(1);
+    }
+
+    if(err.message === 'Service not found') {
+      console.error(chalk.red(`\nService not found. Wrong account? Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
+      process.exit(1);
+    }
+
+    console.error(chalk.red(`\nAn unexpected error occurred!\nError: ${chalk.gray(err.message)}`));
+    process.exit(1);
+  });
+}
