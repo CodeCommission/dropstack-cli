@@ -23,6 +23,14 @@ function log({name, follow}) {
   .then(settings => {
     process.stderr.write('\x1B[?25l'); //hide terminal cursor
     const es = new EventSource(`${settings.url}/deploys/${name || settings.serviceName}/logs?${!follow ? 'follow='+follow : 'follow=true'}`, {headers: {connection: 'keep-alive', 'cache-control': 'no-cache', authorization: `Bearer ${settings.token}`}});
+    process.stdout.write(chalk.gray(`Connecting...`));
+
+    es.onopen = () => {
+      process.stdout.cursorTo(0);
+      process.stdout.clearLine();
+      process.stdout.write(`${chalk.green('Connected!')} ${chalk.gray('Receiving data ...')}`);
+    };
+
     es.onerror = () => {
       process.stderr.write('\x1B[?25h'); //show terminal cursor
       console.error('Log-Stream error occurred. Retry...');

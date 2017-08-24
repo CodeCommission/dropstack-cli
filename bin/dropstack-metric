@@ -26,10 +26,12 @@ function metrics({name, live}){
     .then(response => response.json()))
   .then(data => Boolean(data.message) ? Promise.reject(new Error(data.message)) : data)
   .then(data => {
-    console.log(chalk.gray(`| SUMMARY  | Bytes in: ${data.inBytes || 0} | Bytes out: ${data.outBytes || 0} |`));
+    console.log(chalk.green(`Summary  - ${pad(16, `Requests: ${methodCounts(data.methods)}`, ' ')} ${pad(20, `Incoming: ${(data.inBytes / (1024 * 1024)).toFixed(2) || 0} MB`, ' ')} ${pad(20, `Outgoing: ${(data.outBytes / (1024 * 1024)).toFixed(2) || 0} MB`, ' ')}\n`));
+
     Object.keys(data.services)
     .map(x => data.services[x])
-    .forEach(x => console.log(chalk.gray(`| ${x.name} | Bytes in: ${x.inBytes || 0} | Bytes out: ${x.outBytes || 0} |`)));
+    .filter(x => name ? x.name === name : true)
+    .forEach(x => console.log(chalk.gray(`${chalk.green(x.name)} - ${pad(16, `Requests: ${methodCounts(x.methods)}`, ' ')} ${pad(20, `Incoming: ${(x.inBytes / (1024 * 1024)).toFixed(2) || 0} MB`, ' ')} ${pad(20, `Outgoing: ${(x.outBytes / (1024 * 1024)).toFixed(2) || 0} MB`, ' ')}`)));
   })
   .catch(err => {
     process.stderr.write('\x1B[?25h'); //show terminal cursor
@@ -77,22 +79,24 @@ function metricsLive(name){
       } catch(e){};
       if(!data.services) return;
 
-      const allMethodsCount = methodCounts(data.methods);
-      process.stdout.clearLine();
       process.stdout.cursorTo(0);
-      console.log(chalk.green(`Requests: ${allMethodsCount} Incoming: ${(data.inBytes / (1024 * 1024)).toFixed(2) || 0} MB Outgoing: ${(data.outBytes / (1024 * 1024)).toFixed(2) || 0} MB`));
-      const services = Object.keys(data.services).map(x => data.services[x]);
+      process.stdout.clearLine();
+      console.log(chalk.green(`Summary  - ${pad(16, `Requests: ${methodCounts(data.methods)}`, ' ')} ${pad(20, `Incoming: ${(data.inBytes / (1024 * 1024)).toFixed(2) || 0} MB`, ' ')} ${pad(20, `Outgoing: ${(data.outBytes / (1024 * 1024)).toFixed(2) || 0} MB`, ' ')}\n`));
+
+      const services = Object.keys(data.services).map(x => data.services[x]).filter(x => name ? x.name === name : true);
       services
       .forEach(x => {
         process.stdout.cursorTo(0);
         process.stdout.clearLine();
-        console.log(chalk.gray(`| ${x.name} | Bytes in: ${x.inBytes || 0} | Bytes out: ${x.outBytes || 0} |`));
-
+        console.log(chalk.gray(`${chalk.green(x.name)} - ${pad(16, `Requests: ${methodCounts(x.methods)}`, ' ')} ${pad(20, `Incoming: ${(x.inBytes / (1024 * 1024)).toFixed(2) || 0} MB`, ' ')} ${pad(20, `Outgoing: ${(x.outBytes / (1024 * 1024)).toFixed(2) || 0} MB`, ' ')}`));
       });
-      process.stdout.moveCursor(0, (services.length+1)*-1);
+      process.stdout.moveCursor(0, (services.length+2) * -1);
     };
 
-    es.onerror = () => console.log(chalk.red('\nSorry, unexpected server communication error. Retry later please!'));
+    es.onerror = () => {
+      process.stderr.write('\x1B[?25h'); //show terminal cursor
+      console.log(chalk.red('\nSorry, unexpected server communication error. Retry later please!'));
+    };
   })
   .catch(err => {
     process.stderr.write('\x1B[?25h'); //show terminal cursor
@@ -117,8 +121,8 @@ function metricsLive(name){
       process.exit(1);
     }
 
-    if(err.message === 'Server communication error') {
-      console.error(chalk.red(`\nSorry, server communication error occured. Retry later please!`))
+    if(err.message === 'Unexpected server communication error') {
+      console.error(chalk.red(`\nSorry, unexpected server communication error. Retry later please!`))
       return process.exit(1);
     }
 
