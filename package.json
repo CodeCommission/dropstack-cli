@@ -1,6 +1,6 @@
 {
   "name": "dropstack-cli",
-  "version": "2.4.3",
+  "version": "2.4.6",
   "description": "A CLI to simplify continuous deployments into hybrid clouds.",
   "author": "Mike Bild <mike@codecommission.com>",
   "homepage": "https://github.com/codecommission/dropstack-cli#readme",

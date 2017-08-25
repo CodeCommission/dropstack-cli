@@ -28,7 +28,7 @@ function log({name, follow}) {
     es.onopen = () => {
       process.stdout.cursorTo(0);
       process.stdout.clearLine();
-      process.stdout.write(`${chalk.green('Connected!')} ${chalk.gray('Receiving data ...')}`);
+      process.stdout.write(`${chalk.green('Connected!')} ${chalk.gray('Receiving data ...')}\n`);
     };
 
     es.onerror = () => {
