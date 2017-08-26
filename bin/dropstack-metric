@@ -9,8 +9,8 @@ const configuration = require('../lib/settings')();
 
 program
   .arguments('[name]')
-  .option('-f, --nofollow', 'Do not follow stream')
-  .option('-a, --all', 'Show online and offline deployments.')
+  .option('-f, --nofollow', 'Disable live updates.')
+  .option('-a, --all', 'Show all deployments.')
   .action(name => metricsLive({
     name: name,
     all: program.all,
@@ -30,13 +30,13 @@ function metrics({name, all}){
     .then(response => response.json()))
   .then(data => Boolean(data.message) ? Promise.reject(new Error(data.message)) : data)
   .then(data => {
-    console.log(chalk.green(`Summary - ${pad(16, `Requests: ${methodCounts(data.methods)}`, ' ')} ${pad(20, `Incoming: ${(data.inBytes / (1024 * 1024)).toFixed(2) || 0} MB`, ' ')} ${pad(20, `Outgoing: ${(data.outBytes / (1024 * 1024)).toFixed(2) || 0} MB`, ' ')}\n`));
+    console.log(chalk.green(`Summary  - ${pad(16, `Requests: ${methodCounts(data.methods)}`, ' ')} ${pad(20, `Incoming: ${(data.inBytes / (1024 * 1024)).toFixed(2) || 0} MB`, ' ')} ${pad(20, `Outgoing: ${(data.outBytes / (1024 * 1024)).toFixed(2) || 0} MB`, ' ')}\n`));
 
     Object.keys(data.services)
     .map(x => data.services[x])
     .filter(x => name ? x.name === name : true)
-    .filter(x => !all ? x.active : true)
-    .forEach(x => console.log(chalk.gray(`${x.active ? chalk.green('online ') : chalk.red('offline')} - ${x.active ? chalk.green(x.name) : chalk.gray(x.name)} - ${pad(16, `Requests: ${methodCounts(x.methods)}`, ' ')} ${pad(20, `Incoming: ${(x.inBytes / (1024 * 1024)).toFixed(2) || 0} MB`, ' ')} ${pad(20, `Outgoing: ${(x.outBytes / (1024 * 1024)).toFixed(2) || 0} MB`, ' ')}`)));
+    .filter(x => !all & !name ? x.active : true)
+    .forEach(x => console.log(chalk.gray(`${x.active ? chalk.green('active  ') : chalk.red('inactive')} - ${x.active ? chalk.green(x.name) : chalk.gray(x.name)} - ${pad(16, `Requests: ${methodCounts(x.methods)}`, ' ')} ${pad(20, `Incoming: ${(x.inBytes / (1024 * 1024)).toFixed(2) || 0} MB`, ' ')} ${pad(20, `Outgoing: ${(x.outBytes / (1024 * 1024)).toFixed(2) || 0} MB`, ' ')}`)));
   })
   .catch(err => {
     process.stderr.write('\x1B[?25h'); //show terminal cursor
@@ -88,19 +88,20 @@ function metricsLive({name, all, nofollow}){
 
       process.stdout.cursorTo(0);
       process.stdout.clearLine();
-      console.log(chalk.green(`Summary - ${pad(16, `Requests: ${methodCounts(data.methods)}`, ' ')} ${pad(20, `Incoming: ${(data.inBytes / (1024 * 1024)).toFixed(2) || 0} MB`, ' ')} ${pad(20, `Outgoing: ${(data.outBytes / (1024 * 1024)).toFixed(2) || 0} MB`, ' ')}\n`));
+      console.log(chalk.green(`Summary  - ${pad(16, `Requests: ${methodCounts(data.methods)}`, ' ')} ${pad(20, `Incoming: ${(data.inBytes / (1024 * 1024)).toFixed(2) || 0} MB`, ' ')} ${pad(20, `Outgoing: ${(data.outBytes / (1024 * 1024)).toFixed(2) || 0} MB`, ' ')}\n`));
 
       const services = Object.keys(data.services).map(x => data.services[x])
         .filter(x => name ? x.name === name : true)
-        .filter(x => !all ? x.active : true);
+        .filter(x => !all & !name ? x.active : true);
 
       services
       .forEach(x => {
         process.stdout.cursorTo(0);
         process.stdout.clearLine();
-        console.log(chalk.gray(`${x.active ? chalk.green('online ') : chalk.red('offline')} - ${x.active ? chalk.green(x.name) : chalk.gray(x.name)} - ${pad(16, `Requests: ${methodCounts(x.methods)}`, ' ')} ${pad(20, `Incoming: ${(x.inBytes / (1024 * 1024)).toFixed(2) || 0} MB`, ' ')} ${pad(20, `Outgoing: ${(x.outBytes / (1024 * 1024)).toFixed(2) || 0} MB`, ' ')}`));
+        console.log(chalk.gray(`${x.active ? chalk.green('active  ') : chalk.red('inactive')} - ${x.active ? chalk.green(x.name) : chalk.gray(x.name)} - ${pad(16, `Requests: ${methodCounts(x.methods)}`, ' ')} ${pad(20, `Incoming: ${(x.inBytes / (1024 * 1024)).toFixed(2) || 0} MB`, ' ')} ${pad(20, `Outgoing: ${(x.outBytes / (1024 * 1024)).toFixed(2) || 0} MB`, ' ')}`));
       });
-      process.stdout.moveCursor(0, (services.length+2) * -1);
+
+      process.stdout.moveCursor(0, (services.length + 2) * -1);
     };
 
     es.onerror = () => {

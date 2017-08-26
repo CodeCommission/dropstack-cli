@@ -8,7 +8,7 @@ const configuration = require('../lib/settings')();
 
 program
   .arguments('[name]')
-  .option('-f, --nofollow', 'Do not follow stream')
+  .option('-f, --nofollow', 'Disable live updates.')
   .action(name => log({
     name: name,
     follow: !Boolean(program.nofollow),
