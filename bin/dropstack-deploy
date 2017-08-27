@@ -2,6 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const zlib = require('zlib');
 const program = require('commander');
 const boxen = require('boxen');
 const chalk = require('chalk');
@@ -12,6 +13,7 @@ const fetch = require('node-fetch');
 const copyPaste = require('copy-paste');
 const urlRegex = require('url-regex');
 const FormData = require('form-data');
+const gzip = zlib.createGzip();
 const EventSource = require('eventsource');
 const credentials = require('../lib/credentials')();
 const configurationSettings = require('../lib/settings');
@@ -78,6 +80,7 @@ function deploy({folder, token, variables, instances, alias, https, type, url, e
       fstream.Reader({ path: args, type: 'Directory', follow: false, filter: x => tarFileFilter(x, settings.excludes)})
         .on('error', err => console.error(chalk.red(`\nAn unexpected error occurred!\nMessage: ${chalk.gray(err.message)}`)))
         .pipe(packer)
+        .pipe(gzip)
         .pipe(dirDest);
     });
 }
