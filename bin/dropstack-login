@@ -40,7 +40,6 @@ function login({url, token}) {
   })
   .then(settings => configuration.save(settings))
   .then(settings => {
-    console.log(settings)
     return fetch(`${settings.url}/auth/account`, { headers: { 'Authorization': `Bearer ${settings.token}`, timeout: 10, } })
     .then(response => response.status >= 400 ? Promise.reject(new Error(`Response error: ${response.statusText}`)) : response)
     .then(response => response.json().then(data => Object.assign({}, data, {version: response.headers.get('version')})))
