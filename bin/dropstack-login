@@ -40,6 +40,7 @@ function login({url, token}) {
   })
   .then(settings => configuration.save(settings))
   .then(settings => {
+    console.log(settings)
     return fetch(`${settings.url}/auth/account`, { headers: { 'Authorization': `Bearer ${settings.token}`, timeout: 10, } })
     .then(response => response.status >= 400 ? Promise.reject(new Error(`Response error: ${response.statusText}`)) : response)
     .then(response => response.json().then(data => Object.assign({}, data, {version: response.headers.get('version')})))
@@ -75,6 +76,11 @@ function login({url, token}) {
 
     if(err.message === 'Unauthorized') {
       console.error(chalk.red(`\nUnauthorized. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
+      process.exit(1);
+    }
+
+    if(err.message === 'Not found') {
+      console.error(chalk.red(`\nServer communication error occurred! Retry later please.\nError: ${chalk.gray(err.message)}`));
       process.exit(1);
     }
 
