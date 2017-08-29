@@ -47,7 +47,7 @@ function deploy({folder, token, variables, instances, alias, https, type, url, e
 
   const args = path.resolve(folder);
   const pathObj = path.parse(args);
-  const tarPath = path.join(os.tmpdir(), `${pathObj.name}.tar`);
+  const tarPath = path.join(os.tmpdir(), `${pathObj.name}.tar.gz`);
   const dirDest = fs.createWriteStream(tarPath);
   const packer = tar
     .Pack({ noProprietary: true, fromBase: true })
