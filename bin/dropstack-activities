@@ -7,24 +7,44 @@ const EventSource = require('eventsource');
 const configuration = require('../lib/settings')();
 
 program
-  .action(() => activities())
+  .option('-r, --raw', 'Enable raw JSON outputs.')
+  .action(() => activities({raw: program.raw}))
   .parse(process.argv);
 
 if(!program.args.length) activities(program.opts());
 
-function activities() {
+function activities({raw}) {
   configuration
   .load()
-  .then(settings => { console.log(`Activities for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`); return settings;})
+  .then(settings => { if(!raw) {console.log(`Activities for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`);} return settings;})
   .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed')) : settings)
   .then(settings => {
     process.stderr.write('\x1B[?25l'); //hide terminal cursor
     const es = new EventSource(`${settings.url}/activities/live`, {headers: {connection: 'keep-alive', 'cache-control': 'no-cache', authorization: `Bearer ${settings.token}`}});
+    if(!raw) process.stdout.write(chalk.gray(`Connecting...`));
+
+    es.onopen = () => {
+      if(!raw) {
+        process.stdout.cursorTo(0);
+        process.stdout.clearLine();
+        process.stdout.write(`${chalk.green('Connected!')} ${chalk.gray('Receiving data ...')}\n`);
+      }
+    };
+
     es.onerror = () => {
       process.stderr.write('\x1B[?25h'); //show terminal cursor
       console.error('Activity-Stream error occurred. Retry...');
     }
-    es.onmessage = e => console.log(e.data)
+
+    es.onmessage = e => {
+      if(raw && e.data && e.data !== '{}') return console.log(e.data);
+      try {
+        const logEntry = JSON.parse(e.data);
+        if(!logEntry) return;
+        if(!logEntry.timestamp) return;
+        console.log(chalk.gray(`${chalk.yellow(logEntry.timestamp)} | ${chalk.white(logEntry.id)} | ${chalk.white(logEntry.topic)} | ${chalk.white(logEntry.activity)} | ${chalk.white(logEntry.state)}`));
+      } catch(e){}
+    }
   })
   .catch(err => {
     process.stderr.write('\x1B[?25h'); //show terminal cursor

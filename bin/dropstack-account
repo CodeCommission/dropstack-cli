@@ -8,6 +8,7 @@ const urlRegex = require('url-regex');
 const chalk = require('chalk');
 const credentials = require('../lib/credentials')();
 const configuration = require('../lib/settings')();
+const appPackage = require('../package.json');
 
 program
   .option('-r, --reset', 'Request an account password reset.')
@@ -36,9 +37,9 @@ function account({reset, token}) {
   .then(data => {
     let message = `${chalk.gray(`${pad(15, 'Account ID', ' ')}: ${chalk.white(data.id)}`)}\n`;
     message += `${chalk.gray(`${pad(15, 'Server Version', ' ')}: ${chalk.white(data.version)}`)}\n`;
+    message += `${chalk.gray(`${pad(15, 'Client Version', ' ')}: ${chalk.white(appPackage.version)}`)}\n`;
     message += `${chalk.gray(`${pad(15, 'Server URL', ' ')}: ${chalk.white(data.url)}`)}\n`;
-    message += `${chalk.gray(`${pad(15, 'Plan', ' ')}: ${chalk.white(data.metadata && data.metadata.plan)}\n`)}`;
-    message += `${chalk.gray(`${pad(15, 'Team (beta)', ' ')}: ${chalk.white(data.metadata && data.metadata.team || '-')}`)}`;
+    message += `${chalk.gray(`${pad(15, 'Plan (beta)', ' ')}: ${chalk.white(data.metadata && data.metadata.plan || '-')}`)}`;
     if(token) message += `\n${chalk.gray(`${pad(15, 'JSON Web Token', ' ')}: ${chalk.white(data.token)}`)}`;
     console.log(boxen(message, {padding: 1, borderColor: 'gray', margin: 1}));
 

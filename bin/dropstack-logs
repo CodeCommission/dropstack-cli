@@ -9,33 +9,45 @@ const configuration = require('../lib/settings')();
 program
   .arguments('[name]')
   .option('-f, --nofollow', 'Disable live updates.')
+  .option('-r, --raw', 'Enable raw JSON outputs.')
   .action(name => log({
     name: name,
+    raw: program.raw,
     follow: !Boolean(program.nofollow),
   }))
   .parse(process.argv);
 
-function log({name, follow}) {
+function log({name, follow, raw}) {
   configuration
   .load()
-  .then(settings => { console.log(`Logs ${chalk.green.underline(name || settings.name || '-')} for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`); return settings;})
+  .then(settings => { if(!raw) { console.log(`Logs ${chalk.green.underline(name || settings.name || '-')} for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`); } return settings;})
   .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed')) : settings)
   .then(settings => {
     process.stderr.write('\x1B[?25l'); //hide terminal cursor
     const es = new EventSource(`${settings.url}/deploys/${name || settings.serviceName}/logs?${!follow ? 'follow='+follow : 'follow=true'}`, {headers: {connection: 'keep-alive', 'cache-control': 'no-cache', authorization: `Bearer ${settings.token}`}});
-    process.stdout.write(chalk.gray(`Connecting...`));
+    if(!raw) process.stdout.write(chalk.gray(`Connecting...`));
 
     es.onopen = () => {
-      process.stdout.cursorTo(0);
-      process.stdout.clearLine();
-      process.stdout.write(`${chalk.green('Connected!')} ${chalk.gray('Receiving data ...')}\n`);
+      if(!raw) {
+        process.stdout.cursorTo(0);
+        process.stdout.clearLine();
+        process.stdout.write(`${chalk.green('Connected!')} ${chalk.gray('Receiving data ...')}\n`);
+      }
     };
 
     es.onerror = () => {
       process.stderr.write('\x1B[?25h'); //show terminal cursor
       console.error('Log-Stream error occurred. Retry...');
     }
-    es.onmessage = e => console.log(e.data)
+    es.onmessage = e => {
+      if(raw && e.data && e.data !== '{}') return console.log(e.data);
+      try {
+        const logEntry = JSON.parse(e.data);
+        if(!logEntry) return;
+        if(!logEntry.timestamp) return;
+        console.log(chalk.gray(`${chalk.yellow(logEntry.timestamp)} | ${chalk.white(logEntry.message)}`));
+      } catch(e){}
+    }
   })
   .catch(err => {
     process.stderr.write('\x1B[?25h'); //show terminal cursor
