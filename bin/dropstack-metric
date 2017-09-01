@@ -137,6 +137,11 @@ function metricsLive({name, all, nofollow}){
       return process.exit(1);
     }
 
+    if(err.message === 'Not found') {
+      console.error(chalk.red(`\nServer communication error occurred! Retry later please.\nError: ${chalk.gray(err.message)}`));
+      process.exit(1);
+    }
+
     console.error(chalk.red(`\nAn unexpected error occurred\nError: ${chalk.gray(err.message)}`));
     process.exit(1);
   });
