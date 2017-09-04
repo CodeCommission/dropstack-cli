@@ -245,9 +245,9 @@ function deployment(settings, verbose, token, url) {
         return resolve(settings);
       }
 
-      const progressMessage = progressState.buildImageProgress || progressState.deployProgress || progressState.pushImageProgress || 'Processing';
-      if(progressState && progressState.serviceName && verbose) {
-        console.log(chalk.gray(`${progressState.serviceName} ${progressMessage} ${(progressState.log || '').replace('\n', '')}`))
+      const progressMessage = progressState.buildImageProgress || progressState.deployProgress || progressState.pushImageProgress || 'processing';
+      if(progressMessage && verbose) {
+        console.log(chalk.gray(`${progressState.serviceName || settings.name || '--------' } ${progressMessage} ${(progressState.log || '').replace('\n', '')}`))
       } else {
         if(n >= 8) n = 1;
         process.stdout.cursorTo(0);
