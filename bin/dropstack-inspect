@@ -1,0 +1,106 @@
+#!/usr/bin/env node
+const fs = require('fs');
+const path = require('path');
+const program = require('commander');
+const boxen = require('boxen');
+const chalk = require('chalk');
+const fetch = require('node-fetch');
+const configuration = require('../lib/settings')();
+
+program
+  .arguments('[name]')
+  .option('-s, --save', 'Save deployment settings.')
+  .action(name => inspect({name, save: program.save}))
+  .parse(process.argv);
+
+if(!program.args.length) inspect(program.opts());
+
+function inspect({name, save}) {
+  configuration
+  .load()
+  .then(settings => { console.log(`Inspect ${chalk.green.underline(name || settings.name || '-')} for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`); return settings;})
+  .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed')) : settings)
+  .then(settings => Boolean(name || settings.name) ? settings : Promise.reject(`Deployment name missing`))
+  .then(settings => fetch(`${settings.url}/deploys/${name || settings.name}`, {headers: {Authorization: `Bearer ${settings.token}`, 'Content-Type': 'application/json'}})
+    .then(response => response.status >= 400 ? Promise.reject(new Error(`Response error: ${response.statusText}`)) : response)
+    .then(response => response.json())
+    .then(data => Object.assign(settings, data))
+    .then(data => Boolean(data.message) ? Promise.reject(new Error(data.message)) : data)
+    .then(data => Object.assign({}, settings, {
+      name: data.serviceName,
+      instances: data.serviceInstances,
+      type: data.serviceType,
+      stateful: data.serviceStateful,
+      variables: (data.serviceVariables || []).join(','),
+      serviceUrl: data.serviceUrl,
+      excludes: data.serviceExcludes || [],
+    }))
+  )
+  .then(data => {
+    let message = chalk.green(`Service informations for ${chalk.bold(data.name)}\n\n`);
+    message += chalk.gray(`URL       : ${chalk.white(`https://${data.serviceUrl}`)}\n`);
+    message += chalk.gray(`Type      : ${chalk.white(`${data.type.toUpperCase()}`)}\n`);
+    message += chalk.gray(`Stateful  : ${chalk.white(`${data.stateful || '-'}`)}\n`);
+    message += chalk.gray(`Instances : ${chalk.white(`${data.instances}`)}\n`);
+    message += chalk.gray(`Domain    : ${chalk.white(`${data.domain || data.alias || '-'}`)}\n`);
+    message += chalk.gray(`Alias     : ${chalk.white(`${data.alias || '-'}`)}\n`);
+    if(data.createdAt) message += chalk.gray(`Created   : ${chalk.white(`${new Date(data.createdAt)}`)}\n`);
+    if(data.modifiedAt) message += chalk.gray(`Modified  : ${chalk.white(`${new Date(data.modifiedAt)}`)}\n`);
+
+    message += chalk.gray(`Variables : ${chalk.white(`${(data.variables || []).join(',') || '-'}`)}\n`);
+    message += chalk.gray(`Excludes  : ${chalk.white(`${(data.excludes || []).join(',') || '-'}`)}\n`);
+    message += chalk.gray(`Mappings  : ${chalk.white(`${(data.mappings || []).join(',') || '-'}`)}`);
+
+    console.log(boxen(message, {padding: 1, borderColor: 'gray', margin: 1}));
+    return data;
+  })
+  .then(data => {
+    delete data.serviceName;
+    delete data.serviceImage;
+    delete data.serviceVariables;
+    delete data.serviceExcludes;
+    delete data.serviceMappings;
+    delete data.serviceType;
+    delete data.serviceInstances;
+    delete data.serviceStateful;
+    delete data.createdAt;
+    delete data.modifiedAt;
+    return data;
+  })
+  .then(data => save ? configuration.save(data).then(() => data) : data)
+  .then(() => process.exit(0))
+  .catch(err => {
+    if(err.message === 'canceled') {
+      console.log(chalk.yellow('\nAborted operation.'));
+      return process.exit(0);
+    }
+
+    if(err === 'Deployment name missing') {
+      console.error(chalk.yellow(`\nEnter a service name to inspect.`));
+      return process.exit(1);
+    }
+
+    if(err.message === 'Sign in failed') {
+      console.error(chalk.red(`\nCredentials not found. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
+      process.exit(1);
+    }
+
+    if(err.message === 'Unauthorized') {
+      console.error(chalk.red(`\nUnauthorized. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
+      process.exit(1);
+    }
+
+    if(err.message === 'Service not found') {
+      console.error(chalk.red(`\nService not found. Wrong account? Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
+      process.exit(1);
+    }
+
+    if(err.message === 'Not found') {
+      console.error(chalk.red(`\nServer communication error occurred! Retry later please.\nError: ${chalk.gray(err.message)}`));
+      process.exit(1);
+    }
+
+    console.error(chalk.red(`\nAn unexpected error occurred!\nError: ${chalk.gray(err.message)}`));
+    process.exit(1);
+  });
+}
