@@ -20,10 +20,10 @@ function list(){
     .then(response => response.json()))
   .then(data => Boolean(data.message) ? Promise.reject(new Error(data.message)) : data)
   .then(data => {
-    console.log(`${chalk.bold(pad(7, 'TYPE', ' '))} | ${chalk.bold(pad(5, 'NUM #', ' '))} | ${chalk.bold(pad(9, 'ID/NAME', ' '))} | ${chalk.bold(pad(45, 'URL', ' '))}`);
+    console.log(`${chalk.bold(pad(7, 'TYPE', ' '))} | ${chalk.bold(pad(5, 'NUM #', ' '))} | ${chalk.bold(pad(9, 'ID/NAME', ' '))} | ${chalk.bold(pad(45, 'URL', ' '))} | ${chalk.bold(pad(45, 'STATE', ' '))}`);
     return data;
   })
-  .then(data => (data || []).map(x => `${chalk.gray(pad(7, x.serviceType.toUpperCase(), ' '))} | ${chalk.gray(pad(5, x.serviceInstances, ' '))} | ${chalk.green(pad(9, x.serviceName, ' '))} | ${chalk.bold(pad(45,  `https://${x.serviceUrl || '-'}`, ' '))}`))
+  .then(data => (data || []).map(x => `${chalk.gray(pad(7, x.serviceType.toUpperCase(), ' '))} | ${chalk.gray(pad(5, x.serviceInstances, ' '))} | ${chalk.green(pad(9, x.serviceName, ' '))} | ${chalk.bold(pad(45,  `https://${x.serviceUrl || '-'}`, ' '))} | ${chalk.bold(pad(45,  x.serviceStateful, ' '))}`))
   .then(data => {
     if(data.length > 0) return data.map(x => console.log(x));
     console.log(chalk.gray('Nothing deployed'));

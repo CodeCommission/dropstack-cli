@@ -32,11 +32,12 @@ program
   .option('-x, --excludes [items]', 'Exclude files (globs)', (item, list) => { list.push(item); return list; }, [])
   .option('-i, --instances [number]', 'Number of running instances for deployment', 0)
   .option('-o, --verbose', 'Enable verbose deployment output')
+  .option('-p, --stateful', 'Enable stateful deployment.')
   .parse(process.argv);
 
 deploy(Object.assign(program.opts(), {folder: program.args.length === 0 ? process.cwd() : program.args[0] }));
 
-function deploy({folder, token, variables, instances, alias, https, type, url, environment, aliveEndpoint, verbose, excludes}){
+function deploy({folder, token, variables, instances, alias, https, type, url, environment, aliveEndpoint, verbose, excludes, stateful}){
   if(url && !urlRegex({exact: true}).test(url)) {
     console.log(chalk.red('Invalid Dropstack-Server-URL. Must be the format http(s)://host.domain.com.'));
     return process.exit(1);
@@ -64,18 +65,20 @@ function deploy({folder, token, variables, instances, alias, https, type, url, e
       url,
       verbose,
       excludes,
+      stateful,
     }));
 
   configuration
     .load()
     .then(settings => {
       console.log(`Deploying ${chalk.green.underline(settings.alias || settings.name || '-')} for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(url || settings.url || '-')}`);
+
       if(verbose) {
         console.log(chalk.gray(`${settings.name || '--------'} packing ...`));
       } else {
         process.stdout.cursorTo(0);
         process.stdout.clearLine();
-        process.stdout.write(chalk.gray(' Packing ...'));
+        process.stdout.write(chalk.gray(`${settings.name || '--------'} Packing ...`));
       }
       fstream.Reader({ path: args, type: 'Directory', follow: false, filter: x => tarFileFilter(x, settings.excludes)})
         .on('error', err => console.error(chalk.red(`\nAn unexpected error occurred!\nMessage: ${chalk.gray(err.message)}`)))
@@ -85,11 +88,11 @@ function deploy({folder, token, variables, instances, alias, https, type, url, e
     });
 }
 
-function sync({tarPath, token, variables, instances, alias, type, https, url, aliveEndpoint, verbose, excludes}){
+function sync({tarPath, token, variables, instances, alias, type, https, url, aliveEndpoint, verbose, excludes, stateful}){
   configuration
-  .load({variables, tarPath, instances, alias, type, https, aliveEndpoint, excludes})
-  // .then(settings => !(token && settings.username) ? Promise.reject(new Error('Sign in failed')) : settings)
+  .load({variables, tarPath, instances, alias, type, https, aliveEndpoint, excludes, stateful})
   .then(settings => {
+    if(!settings['support-stateful'] && stateful) return Promise.reject(new Error(`Stateful service deployment is not supported on ${settings.url}`));
     if(settings.message) return Promise.reject(new Error(settings.message));
     return settings;
   })
@@ -97,8 +100,8 @@ function sync({tarPath, token, variables, instances, alias, type, https, url, al
   .then(settings => configuration.save(settings))
   .then(settings => {
     let message = chalk.green(`Deployment ${chalk.bold(settings.name || '-')} completed - ${settings && settings.instances && `${settings.instances} running instance(s)!`}\n\n`);
-    message += `• URL: ${chalk.bold(`https://${settings.serviceUrl}`)}\n`;
-    if(settings && settings.alias) message += `• Alias: ${chalk.bold(settings.alias)}\n`;
+    message += chalk.grey(`URL   : ${chalk.white(`https://${settings.serviceUrl}`)}\n`);
+    if(settings && settings.alias) message += chalk.grey(`Alias : ${chalk.white(settings.alias)}\n`);
     message += `\n${chalk.gray('URL copied to clipboard.')}`;
     console.log();
     console.log(boxen(message, {padding: 1, borderColor: 'gray', margin: 1}));
@@ -111,7 +114,12 @@ function sync({tarPath, token, variables, instances, alias, type, https, url, al
       return process.exit(0);
     }
 
-    if(err.message.indexOf('building error') !== -1) {
+    if(err.message.includes('Stateful service deployment is not supported')) {
+      console.log(chalk.red(`\n${err.message}`));
+      return process.exit(1);
+    }
+
+    if(err.message.includes('building error')) {
       console.error(chalk.red(`\nVerify your Dockerfile, please!\nError: ${err.message}`))
       return process.exit(1);
     }
@@ -136,7 +144,7 @@ function sync({tarPath, token, variables, instances, alias, type, https, url, al
       process.exit(1);
     }
 
-    if(err.message.indexOf('Deployment error occurred') !== -1) {
+    if(err.message.includes('Deployment error occurred')) {
       console.error(chalk.red(`\nSorry, deployment error occurred. Retry later please!\nError: ${err.message}.`))
       return process.exit(1);
     }
@@ -152,6 +160,11 @@ function sync({tarPath, token, variables, instances, alias, type, https, url, al
     }
 
     if(err.message === 'Service already assigned') {
+      console.error(chalk.red(`\nService already assigned. Wrong account? Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
+      process.exit(1);
+    }
+
+    if(err.message === 'error: Service already assigned') {
       console.error(chalk.red(`\nService already assigned. Wrong account? Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
       process.exit(1);
     }
@@ -191,6 +204,7 @@ function deployment(settings, verbose, token, url) {
   if(settings.instances) form.append('serviceInstances', settings.instances);
   if(settings.aliveEndpoint) form.append('serviceAliveEndpoint', settings.aliveEndpoint);
   if(settings.variables) form.append('serviceVariables', settings.variables);
+  if(settings.stateful) form.append('serviceStateful', settings.stateful.toString());
   let uploadedSize = 0;
   tarStream.on('data', buffer => {
     uploadedSize += buffer.length;
@@ -241,6 +255,8 @@ function deployment(settings, verbose, token, url) {
         settings.instances = progressState.serviceInstances;
         settings.aliveEndpoint = progressState.serviceAliveEndpoint;
         settings.variables = progressState.serviceVariables;
+        settings.stateful = progressState.serviceStateful;
+        settings.mappings = progressState.serviceMappings;
         copyPaste.copy(`https://${progressState.serviceAlias || progressState.serviceUrl || ''}`);
         return resolve(settings);
       }
@@ -276,6 +292,8 @@ function deployment(settings, verbose, token, url) {
         settings.instances = data.serviceInstances;
         settings.variables = data.serviceVariables;
         settings.aliveEndpoint = data.serviceAliveEndpoint;
+        settings.stateful = data.serviceStateful;
+        settings.mappings = data.serviceMappings;
       })
       .catch(err => {
         es.close();

@@ -43,7 +43,7 @@ function login({url, token}) {
   .then(settings => {
     return fetch(`${settings.url}/auth/account`, { headers: { 'Authorization': `Bearer ${settings.token}`, timeout: 10, } })
     .then(response => response.status >= 400 ? Promise.reject(new Error(`Response error: ${response.statusText}`)) : response)
-    .then(response => response.json().then(data => Object.assign({}, data, {version: response.headers.get('version')})))
+    .then(response => response.json().then(data => Object.assign({}, data, {version: response.headers.get('x-dropstack-version'), 'support-stateful': response.headers.get('x-dropstack-stateful')})))
     .then(data => Object.assign({}, data, settings));
   })
   .then(data => Boolean(data.error || data.message) ? Promise.reject(new Error(data.message)) : data)
@@ -53,7 +53,9 @@ function login({url, token}) {
     message += `${chalk.gray(`${pad(15, 'Server Version', ' ')}: ${chalk.white(data.version)}`)}\n`;
     message += `${chalk.gray(`${pad(15, 'Client Version', ' ')}: ${chalk.white(appPackage.version)}`)}\n`;
     message += `${chalk.gray(`${pad(15, 'Server URL', ' ')}: ${chalk.white(data.url)}`)}\n`;
-    message += `${chalk.gray(`${pad(15, 'Plan (beta)', ' ')}: ${chalk.white(data.metadata && data.metadata.plan || '-')}`)}`;
+    message += `${chalk.gray(`${pad(15, 'Signed up', ' ')}: ${chalk.white(new Date(data.signedUpAt))}`)}`;
+    if(data['support-stateful']) message += `\n${chalk.gray(`${pad(15, 'Stateful', ' ')}: ${chalk.white(data['support-stateful'])}`)}`;
+    if(data.metadata && data.metadata.plan) message += `\n${chalk.gray(`${pad(15, 'Plan (beta)', ' ')}: ${chalk.white(data.metadata && data.metadata.plan || '-')}`)}`;
     if(token) message += `\n${chalk.gray(`${pad(15, 'JSON Web Token', ' ')}: ${chalk.white(data.token)}`)}`;
     console.log(boxen(message, {padding: 1, borderColor: 'gray', margin: 1}));
     process.exit(0);

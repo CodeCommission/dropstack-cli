@@ -25,7 +25,8 @@ program
   .version(`${pkg.name} v${pkg.version}`)
   .command('login <url>', 'Log-in or switch to deployment environment. (default https://api.cloud.dropstack.run)')
   .command('logout', 'Log-out from deployment environment.')
-  .command('account', 'Show account informations.').alias('info')
+  .command('inspect [name]', 'Show instance informations.').alias('info')
+  .command('account', 'Show account informations.').alias('infos')
   .command('activities', 'Show account activities.').alias('activity')
   .command('deploy [folder]', 'Deploy to environment.').alias('add')
   .command('list', 'List your active environment deployments.').alias('ls')
@@ -35,4 +36,5 @@ program
   .command('logs [name]', 'Show StdOut/StdErr logs for deployment.').alias('log')
   .command('metric [name]', 'Show metrics for deployments.').alias('metrics')
   .command('scale [name]', 'Scale instances for deployments.')
+  .command('mapping [name]', 'Manage route mappings for deployment.').alias('map')
   .parse(process.argv);
