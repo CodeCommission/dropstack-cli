@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 const fs = require('fs');
+const fse = require('fs-extra');
 const path = require('path');
 const program = require('commander');
 const boxen = require('boxen');
@@ -10,35 +11,37 @@ const configuration = require('../lib/settings')();
 
 program
   .arguments('[name]')
+  .option('-j, --json [json]', 'Apply mappings from JSON.')
   .option('-f, --file [file]', 'Apply mappings from file.')
-  .action(name => mapping({name: name || '', file: program.file}))
+  .action(name => mapping({name: name || '', json: program.json || {}, file: program.file}))
   .parse(process.argv);
 
 if(!program.args.length) mapping(program.opts());
 
-function mapping({name, file}) {
-  if(!file) {
-    console.error(chalk.red(`Invalid mapping file.\nEnter ${chalk.bold('dropstack help mappings')} to read more introductions.`));
-    process.exit(1);
-  }
-
+function mapping({name, file, json}) {
   configuration
   .load()
-  .then(settings => { console.log(`Route mappings ${chalk.green.underline(name || settings.name || '-')} for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`); return settings;})
+  .then(settings => Promise.resolve(file ? fse.readJson(file) : JSON.parse(json)).then(data => Object.assign({}, settings, {mappings: data})))
+  .then(settings => {
+    console.log(settings)
+    if(!settings.mappings) return Promise.reject(new Error('invalid mappings'));
+    return settings;
+  })
+  .then(settings => { console.log(`Mappings ${chalk.green.underline(name || settings.name || '-')} for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`); return settings;})
   .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed')) : settings)
   .then(settings => Boolean(name || settings.name) ? settings : Promise.reject(`Enter a deployment name`))
-  .then(settings => fetch(`${settings.url}/deploys/${name || settings.name}/scale`, { method: 'PUT', body: JSON.stringify({serviceInstances: instances || ''}), headers: { Authorization: `Bearer ${settings.token}`, 'Content-Type': 'application/json' } })
+  .then(settings => fetch(`${settings.url}/deploys/${name || settings.name}/mappings`, { method: 'PUT', body: JSON.stringify({serviceMappings: json || ''}), headers: { Authorization: `Bearer ${settings.token}`, 'Content-Type': 'application/json' } })
     .then(response => response.status >= 400 ? Promise.reject(new Error(`Response error: ${response.statusText}`)) : response)
     .then(response => response.json())
     .then(data => Object.assign(settings, data))
     .then(data => Boolean(data.message) ? Promise.reject(new Error(data.message)) : data)
-    .then(data => configuration.load().then(settings => configuration.save(Object.assign(settings, {instances: data.serviceInstances})))))
+    .then(data => configuration.load().then(settings => configuration.save(Object.assign(settings, {mappings: data.serviceMappings})))))
   .then(data => {
     copyPaste.copy(`https://${data.domain || data.alias || data.serviceUrl || ''}`);
 
-    let message = chalk.green(`Scale for ${chalk.bold(data.name || data.name)} updated - ${data.instances} running instance(s)!\n\n`);
+    let message = chalk.green(`Mappings for ${chalk.bold(data.name || data.name)} updated!\n\n`);
     message += `• URL: ${chalk.bold(`https://${data.serviceUrl}`)}\n`;
-    if(data.domain || data.alias) message += `• Domain: ${chalk.bold('http://' + (data.domain || data.alias))}\n`;
+    if(data.mappings) message += chalk.gray(`Mapping: ${chalk.white(data.mappings)}\n`);
     message += `\n${chalk.gray('URL copied to clipboard.')}\n`;
     console.log(boxen(message, {padding: 1, borderColor: 'gray', margin: 1}));
 
@@ -48,6 +51,16 @@ function mapping({name, file}) {
     if(err.message === 'canceled') {
       console.log(chalk.yellow('\nAborted operation.'));
       return process.exit(0);
+    }
+
+    if(err.message === 'invalid mappings') {
+      console.error(chalk.red(`Invalid mappings.\nEnter ${chalk.bold('dropstack help mappings')} to read more introductions.`));
+      process.exit(1);
+    }
+
+    if(err.message.includes('Unexpected token')) {
+      console.error(chalk.red(`Invalid mappings.\nEnter ${chalk.bold('dropstack help mappings')} to read more introductions.`));
+      process.exit(1);
     }
 
     if(err.message === 'Sign in failed') {

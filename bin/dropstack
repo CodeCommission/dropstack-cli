@@ -36,5 +36,5 @@ program
   .command('logs [name]', 'Show StdOut/StdErr logs for deployment.').alias('log')
   .command('metric [name]', 'Show metrics for deployments.').alias('metrics')
   .command('scale [name]', 'Scale instances for deployments.')
-  .command('mapping [name]', 'Manage route mappings for deployment.').alias('map')
+  .command('mapping [name]', 'Manage route mappings for deployment.').alias('map').alias('mappings')
   .parse(process.argv);
