@@ -33,7 +33,7 @@ function inspect({name, save}) {
       stateful: data.serviceStateful,
       variables: (data.serviceVariables || []).join(','),
       serviceUrl: data.serviceUrl,
-      excludes: data.serviceExcludes || [],
+      excludes: settings.excludes || data.serviceExcludes || [],
     }))
   )
   .then(data => {
@@ -47,9 +47,26 @@ function inspect({name, save}) {
     if(data.createdAt) message += chalk.gray(`Created   : ${chalk.white(`${new Date(data.createdAt)}`)}\n`);
     if(data.modifiedAt) message += chalk.gray(`Modified  : ${chalk.white(`${new Date(data.modifiedAt)}`)}\n`);
 
-    message += chalk.gray(`Variables : ${chalk.white(`${(data.variables || []).join(',') || '-'}`)}\n`);
-    message += chalk.gray(`Excludes  : ${chalk.white(`${(data.excludes || []).join(',') || '-'}`)}\n`);
-    message += chalk.gray(`Mappings  : ${chalk.white(`${(data.mappings || []).join(',') || '-'}`)}`);
+    if(!data.variables) message += chalk.gray(`Variables : ${chalk.white('-')}\n`);
+    if(data.variables) {
+      data.variables.split(',').forEach(variable => {
+        message +=  chalk.gray(`Variables : ${chalk.white(`${variable}`)}\n`);
+      })
+    }
+
+    if(!data.excludes) message += chalk.gray(`Excludes  : ${chalk.white('-')}\n`);
+    if(data.excludes) {
+      data.excludes.forEach(exclude => {
+        message +=  chalk.gray(`Excludes  : ${chalk.white(`${exclude}`)}\n`);
+      })
+    }
+
+    if(!data.mappings) message += chalk.gray(`Mappings  : ${chalk.white('-')}\n`);
+    if(data.mappings) {
+      Object.keys(data.mappings).forEach(mapping => {
+        message +=  chalk.gray(`Mapping   : ${chalk.white(mapping)} ${chalk.gray('->')} ${chalk.white(`${data.mappings[mapping]}`)}\n`);
+      })
+    }
 
     console.log(boxen(message, {padding: 1, borderColor: 'gray', margin: 1}));
     return data;
@@ -63,6 +80,7 @@ function inspect({name, save}) {
     delete data.serviceType;
     delete data.serviceInstances;
     delete data.serviceStateful;
+    delete data.serviceAlias;
     delete data.createdAt;
     delete data.modifiedAt;
     return data;

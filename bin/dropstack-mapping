@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 const fs = require('fs');
-const fse = require('fs-extra');
 const path = require('path');
 const program = require('commander');
 const boxen = require('boxen');
@@ -11,26 +10,46 @@ const configuration = require('../lib/settings')();
 
 program
   .arguments('[name]')
-  .option('-j, --json [json]', 'Apply mappings from JSON.')
-  .option('-f, --file [file]', 'Apply mappings from file.')
-  .action(name => mapping({name: name || '', json: program.json || {}, file: program.file}))
+  .option('-m, --mappings [items]', 'Add route mapping (src=dst)', (item, list) => { list.push(item); return list; }, [])
+  .action(name => mapping({name: name || '', mappings: program.mappings}))
   .parse(process.argv);
 
 if(!program.args.length) mapping(program.opts());
 
-function mapping({name, file, json}) {
+function mapping({name, mappings}) {
+  const routeMappings = mappings.reduce((s, n) => {
+    const keyValue = n.toLowerCase().split('=');
+    if (!keyValue) {
+      console.error(chalk.red(`Invalid mapping: [${keyValue[0]}=${keyValue[1]}] Ensure source is a valid path and destination is a valid URL.`));
+      process.exit(1);
+    }
+    if (keyValue.length !== 2) {
+      console.error(chalk.red(`Invalid mapping: [${keyValue[0]}=${keyValue[1]}] Ensure source is a valid path and destination is a valid URL.`));
+      process.exit(1);
+    }
+    if (!keyValue[0]) {
+      console.error(chalk.red(`Invalid mapping: [${keyValue[0]}=${keyValue[1]}] Ensure source is a valid path and destination is a valid URL.`));
+      process.exit(1);
+    }
+    if (!keyValue[1]) {
+      console.error(chalk.red(`Invalid mapping: [${keyValue[0]}=${keyValue[1]}] Ensure source is a valid path and destination is a valid URL.`));
+      process.exit(1);
+    }
+    s[keyValue[0]] = keyValue[1];
+    return s;
+  }, {});
+
   configuration
   .load()
-  .then(settings => Promise.resolve(file ? fse.readJson(file) : JSON.parse(json)).then(data => Object.assign({}, settings, {mappings: data})))
+  .then(settings => Object.assign({}, settings, {mappings: Object.assign({}, settings.mappings, routeMappings)}))
   .then(settings => {
-    console.log(settings)
     if(!settings.mappings) return Promise.reject(new Error('invalid mappings'));
     return settings;
   })
   .then(settings => { console.log(`Mappings ${chalk.green.underline(name || settings.name || '-')} for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`); return settings;})
   .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed')) : settings)
   .then(settings => Boolean(name || settings.name) ? settings : Promise.reject(`Enter a deployment name`))
-  .then(settings => fetch(`${settings.url}/deploys/${name || settings.name}/mappings`, { method: 'PUT', body: JSON.stringify({serviceMappings: json || ''}), headers: { Authorization: `Bearer ${settings.token}`, 'Content-Type': 'application/json' } })
+  .then(settings => fetch(`${settings.url}/deploys/${name || settings.name}/mappings`, { method: 'PUT', body: JSON.stringify({serviceMappings: settings.mappings || ''}), headers: { Authorization: `Bearer ${settings.token}`, 'Content-Type': 'application/json' } })
     .then(response => response.status >= 400 ? Promise.reject(new Error(`Response error: ${response.statusText}`)) : response)
     .then(response => response.json())
     .then(data => Object.assign(settings, data))
@@ -40,9 +59,14 @@ function mapping({name, file, json}) {
     copyPaste.copy(`https://${data.domain || data.alias || data.serviceUrl || ''}`);
 
     let message = chalk.green(`Mappings for ${chalk.bold(data.name || data.name)} updated!\n\n`);
-    message += `• URL: ${chalk.bold(`https://${data.serviceUrl}`)}\n`;
-    if(data.mappings) message += chalk.gray(`Mapping: ${chalk.white(data.mappings)}\n`);
-    message += `\n${chalk.gray('URL copied to clipboard.')}\n`;
+    message += chalk.gray(`URL     : ${chalk.white(`https://${data.domain || data.alias || data.serviceUrl || ''}`)}\n`);
+    if(!data.mappings) message += chalk.gray(`Mappings : ${chalk.white('-')}\n`);
+    if(data.mappings) {
+      Object.keys(data.mappings).forEach(map => {
+        message +=  chalk.gray(`Mapping : ${chalk.white(map)} ${chalk.gray('->')} ${chalk.white(`${data.mappings[map]}`)}\n`);
+      })
+    }
+    message += `\n${chalk.gray('URL copied to clipboard.')}`;
     console.log(boxen(message, {padding: 1, borderColor: 'gray', margin: 1}));
 
     process.exit(0);
@@ -54,12 +78,12 @@ function mapping({name, file, json}) {
     }
 
     if(err.message === 'invalid mappings') {
-      console.error(chalk.red(`Invalid mappings.\nEnter ${chalk.bold('dropstack help mappings')} to read more introductions.`));
+      console.error(chalk.red(`Invalid route mappings. Enter ${chalk.bold('dropstack help mappings')} to read more introductions.`));
       process.exit(1);
     }
 
     if(err.message.includes('Unexpected token')) {
-      console.error(chalk.red(`Invalid mappings.\nEnter ${chalk.bold('dropstack help mappings')} to read more introductions.`));
+      console.error(chalk.red(`Invalid route mappings. Enter ${chalk.bold('dropstack help mappings')} to read more introductions.`));
       process.exit(1);
     }
 

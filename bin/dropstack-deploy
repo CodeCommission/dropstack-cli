@@ -28,8 +28,8 @@ program
   .option('-y, --type [name]', 'Set type of deployment manually', '')
   .option('-s, --https', 'Enable HTTPS/HTTP2/SPDY of deployment', false)
   .option('-m, --alive-endpoint [path]', 'Alive monitoring endpoint (/info)', '')
-  .option('-v, --variables [items]', 'Key=Value variables', (item, list) => { list.push(item); return list; }, [])
-  .option('-x, --excludes [items]', 'Exclude files (globs)', (item, list) => { list.push(item); return list; }, [])
+  .option('-v, --variables [items]', 'Add variables (KEY=value)', (item, list) => { list.push(item); return list; }, [])
+  .option('-x, --excludes [items]', 'Exclude files and folders (file glob pattern)', (item, list) => { list.push(item); return list; }, [])
   .option('-i, --instances [number]', 'Number of running instances for deployment', 0)
   .option('-o, --verbose', 'Enable verbose deployment output')
   .option('-p, --stateful', 'Enable stateful deployment.')
@@ -102,8 +102,7 @@ function sync({tarPath, token, variables, instances, alias, type, https, url, al
     let message = chalk.green(`Deployment ${chalk.bold(settings.name || '-')} completed - ${settings && settings.instances && `${settings.instances} running instance(s)!`}\n\n`);
     message += chalk.grey(`URL   : ${chalk.white(`https://${settings.serviceUrl}`)}\n`);
     if(settings && settings.alias) message += chalk.grey(`Alias : ${chalk.white(settings.alias)}\n`);
-    message += `\n${chalk.gray('URL copied to clipboard.')}`;
-    console.log();
+    message += `\n${chalk.gray('URL copied to clipboard.\n')}`;
     console.log(boxen(message, {padding: 1, borderColor: 'gray', margin: 1}));
   })
   .catch(err => {
@@ -114,8 +113,13 @@ function sync({tarPath, token, variables, instances, alias, type, https, url, al
       return process.exit(0);
     }
 
+    if(err.message.includes('Error:')) {
+      console.error(chalk.red(`\nServer error occurred! Open an issue and retry later please.\nError: ${chalk.gray(err.message)}`));
+      return process.exit(1);
+    }
+
     if(err.message.includes('Stateful service deployment is not supported')) {
-      console.log(chalk.red(`\n${err.message}`));
+      console.error(chalk.red(`\n${err.message}`));
       return process.exit(1);
     }
 
@@ -145,12 +149,12 @@ function sync({tarPath, token, variables, instances, alias, type, https, url, al
     }
 
     if(err.message.includes('Deployment error occurred')) {
-      console.error(chalk.red(`\nSorry, deployment error occurred. Retry later please!\nError: ${err.message}.`))
+      console.error(chalk.red(`\nSorry, deployment error occurred.  Open an issue and retry later please.\nError: ${err.message}.`))
       return process.exit(1);
     }
 
     if(err.message === 'Unexpected server communication error') {
-      console.error(chalk.red(`\nSorry, unexpected server communication error. Retry later please!`))
+      console.error(chalk.red(`\nSorry, unexpected server communication error. Open an issue and retry later please.\nError: ${err.message}.`))
       return process.exit(1);
     }
 
@@ -170,11 +174,11 @@ function sync({tarPath, token, variables, instances, alias, type, https, url, al
     }
 
     if(err.message === 'Not found') {
-      console.error(chalk.red(`\nServer communication error occurred! Retry later please.\nError: ${chalk.gray(err.message)}`));
+      console.error(chalk.red(`\nServer communication error occurred! Open an issue and retry later please.\nError: ${chalk.gray(err.message)}`));
       process.exit(1);
     }
 
-    console.error(chalk.red(`\nAn unexpected error occurred!\nError: ${chalk.gray(err.message)}`));
+    console.error(chalk.red(`\nAn unexpected error occurred! Open an issue and retry later please.\nError: ${chalk.gray(err.message)}`));
     process.exit(1);
   });
 }
@@ -204,7 +208,10 @@ function deployment(settings, verbose, token, url) {
   if(settings.instances) form.append('serviceInstances', settings.instances);
   if(settings.aliveEndpoint) form.append('serviceAliveEndpoint', settings.aliveEndpoint);
   if(settings.variables) form.append('serviceVariables', settings.variables);
+  if(settings.excludes) form.append('serviceExcludes', JSON.stringify(settings.excludes));
+  if(settings.mappings) form.append('serviceMappings', JSON.stringify(settings.mappings));
   if(settings.stateful) form.append('serviceStateful', settings.stateful.toString());
+
   let uploadedSize = 0;
   tarStream.on('data', buffer => {
     uploadedSize += buffer.length;
