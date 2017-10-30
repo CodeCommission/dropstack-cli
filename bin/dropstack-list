@@ -1,60 +1,125 @@
 #!/usr/bin/env node
-const path = require('path');
-const fs = require('fs');
-const program = require('commander');
-const chalk = require('chalk');
-const fetch = require('node-fetch');
-const configuration = require('../lib/settings')();
+const path = require("path");
+const fs = require("fs");
+const program = require("commander");
+const chalk = require("chalk");
+const fetch = require("node-fetch");
+const configuration = require("../lib/settings")();
 
 program.parse(process.argv);
 
-if(!program.args.length) list();
+if (!program.args.length) list();
 
-function list(){
+function list() {
   configuration
-  .load()
-  .then(settings => { console.log(`Deployments for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}\n`); return settings;})
-  .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed')) : settings)
-  .then(settings => fetch(`${settings.url}/deploys`, { headers: { Authorization: `Bearer ${settings.token}`, } })
-    .then(response => response.status >= 400 ? Promise.reject(new Error(`Response error: ${response.statusText}`)) : response)
-    .then(response => response.json()))
-  .then(data => Boolean(data.message) ? Promise.reject(new Error(data.message)) : data)
-  .then(data => {
-    console.log(`${chalk.bold(pad(7, 'TYPE', ' '))} | ${chalk.bold(pad(5, 'NUM #', ' '))} | ${chalk.bold(pad(9, 'ID/NAME', ' '))} | ${chalk.bold(pad(45, 'URL', ' '))} | ${chalk.bold(pad(45, 'STATEFUL', ' '))}`);
-    return data;
-  })
-  .then(data => (data || []).map(x => `${chalk.gray(pad(7, x.serviceType.toUpperCase(), ' '))} | ${chalk.gray(pad(5, x.serviceInstances, ' '))} | ${chalk.green(pad(9, x.serviceName, ' '))} | ${chalk.bold(pad(45,  `https://${x.serviceUrl || '-'}`, ' '))} | ${chalk.gray(pad(45,  x.serviceStateful || 'N/A', ' '))}`))
-  .then(data => {
-    if(data.length > 0) return data.map(x => console.log(x));
-    console.log(chalk.gray('Nothing deployed'));
-  })
-  .catch(err => {
-    if(err.message === 'canceled') {
-      console.log(chalk.yellow('\nAborted operation.'));
-      return process.exit(0);
-    }
+    .load()
+    .then(settings => {
+      console.log(
+        `Deployments for ${chalk.green.underline(
+          settings.username || "-"
+        )} on ${chalk.green.underline(settings.url || "-")}\n`
+      );
+      return settings;
+    })
+    .then(
+      settings =>
+        Boolean(!(settings.token && settings.username))
+          ? Promise.reject(new Error("Sign in failed"))
+          : settings
+    )
+    .then(settings =>
+      fetch(`${settings.url}/deploys`, {
+        headers: { Authorization: `Bearer ${settings.token}` }
+      })
+        .then(
+          response =>
+            response.status >= 400
+              ? Promise.reject(
+                  new Error(`Response error: ${response.statusText}`)
+                )
+              : response
+        )
+        .then(response => response.json())
+    )
+    .then(
+      data =>
+        Boolean(data.message) ? Promise.reject(new Error(data.message)) : data
+    )
+    .then(data => {
+      console.log(
+        `${chalk.bold(pad(7, "TYPE", " "))} | ${chalk.bold(
+          pad(5, "NUM #", " ")
+        )} | ${chalk.bold(pad(9, "ID/NAME", " "))} | ${chalk.bold(
+          pad(45, "URL", " ")
+        )}`
+      );
+      return data;
+    })
+    .then(data =>
+      (data || []).map(
+        x =>
+          `${chalk.gray(
+            pad(7, x.serviceType.toUpperCase(), " ")
+          )} | ${chalk.gray(pad(5, x.serviceInstances, " "))} | ${chalk.green(
+            pad(9, x.serviceName, " ")
+          )} | ${chalk.bold(pad(45, `https://${x.serviceUrl || "-"}`, " "))}`
+      )
+    )
+    .then(data => {
+      if (data.length > 0) return data.map(x => console.log(x));
+      console.log(chalk.gray("Nothing deployed"));
+    })
+    .catch(err => {
+      if (err.message === "canceled") {
+        console.log(chalk.yellow("\nAborted operation."));
+        return process.exit(0);
+      }
 
-    if(err.message === 'Sign in failed') {
-      console.error(chalk.red(`\nCredentials not found. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
+      if (err.message === "Sign in failed") {
+        console.error(
+          chalk.red(
+            `\nCredentials not found. Use ${chalk.bold(
+              "dropstack login <url>"
+            )} to verifiy your credentials.`
+          )
+        );
+        process.exit(1);
+      }
+
+      if (err.message === "Unauthorized") {
+        console.error(
+          chalk.red(
+            `\nUnauthorized. Use ${chalk.bold(
+              "dropstack login <url>"
+            )} to verifiy your credentials.`
+          )
+        );
+        process.exit(1);
+      }
+
+      if (err.message === "Not found") {
+        console.error(
+          chalk.red(
+            `\nServer communication error occurred! Retry later please.\nError: ${chalk.gray(
+              err.message
+            )}`
+          )
+        );
+        process.exit(1);
+      }
+
+      console.error(
+        chalk.red(
+          `\nAn unexpected error occurred!\nError: ${chalk.gray(err.message)}`
+        )
+      );
       process.exit(1);
-    }
-
-    if(err.message === 'Unauthorized') {
-      console.error(chalk.red(`\nUnauthorized. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
-      process.exit(1);
-    }
-
-    if(err.message === 'Not found') {
-      console.error(chalk.red(`\nServer communication error occurred! Retry later please.\nError: ${chalk.gray(err.message)}`));
-      process.exit(1);
-    }
-
-    console.error(chalk.red(`\nAn unexpected error occurred!\nError: ${chalk.gray(err.message)}`));
-    process.exit(1);
-  });
+    });
 }
 
 function pad(width, string, padding) {
-  if(!string) return;
-  return (width <= string.length) ? string : pad(width, string + padding, padding)
+  if (!string) return;
+  return width <= string.length
+    ? string
+    : pad(width, string + padding, padding);
 }
