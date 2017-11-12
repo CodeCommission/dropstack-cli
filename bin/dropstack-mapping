@@ -10,29 +10,53 @@ const configuration = require('../lib/settings')();
 
 program
   .arguments('[name]')
-  .option('-m, --mappings [items]', 'Add route mapping (src=dst)', (item, list) => { list.push(item); return list; }, [])
+  .option(
+    '-m, --mappings [items]',
+    'Add route mapping (src=dst)',
+    (item, list) => {
+      list.push(item);
+      return list;
+    },
+    []
+  )
   .action(name => mapping({name: name || '', mappings: program.mappings}))
   .parse(process.argv);
 
-if(!program.args.length) mapping(program.opts());
+if (!program.args.length) mapping(program.opts());
 
 function mapping({name, mappings}) {
   const routeMappings = mappings.reduce((s, n) => {
     const keyValue = n.toLowerCase().split('=');
     if (!keyValue) {
-      console.error(chalk.red(`Invalid mapping: [${keyValue[0]}=${keyValue[1]}] Ensure source is a valid path and destination is a valid URL.`));
+      console.error(
+        chalk.red(
+          `Invalid mapping: [${keyValue[0]}=${keyValue[1]}] Ensure source is a valid path and destination is a valid URL.`
+        )
+      );
       process.exit(1);
     }
     if (keyValue.length !== 2) {
-      console.error(chalk.red(`Invalid mapping: [${keyValue[0]}=${keyValue[1]}] Ensure source is a valid path and destination is a valid URL.`));
+      console.error(
+        chalk.red(
+          `Invalid mapping: [${keyValue[0]}=${keyValue[1]}] Ensure source is a valid path and destination is a valid URL.`
+        )
+      );
       process.exit(1);
     }
     if (!keyValue[0]) {
-      console.error(chalk.red(`Invalid mapping: [${keyValue[0]}=${keyValue[1]}] Ensure source is a valid path and destination is a valid URL.`));
+      console.error(
+        chalk.red(
+          `Invalid mapping: [${keyValue[0]}=${keyValue[1]}] Ensure source is a valid path and destination is a valid URL.`
+        )
+      );
       process.exit(1);
     }
     if (!keyValue[1]) {
-      console.error(chalk.red(`Invalid mapping: [${keyValue[0]}=${keyValue[1]}] Ensure source is a valid path and destination is a valid URL.`));
+      console.error(
+        chalk.red(
+          `Invalid mapping: [${keyValue[0]}=${keyValue[1]}] Ensure source is a valid path and destination is a valid URL.`
+        )
+      );
       process.exit(1);
     }
     s[keyValue[0]] = keyValue[1];
@@ -40,74 +64,121 @@ function mapping({name, mappings}) {
   }, {});
 
   configuration
-  .load()
-  .then(settings => Object.assign({}, settings, {mappings: Object.assign({}, settings.mappings, routeMappings)}))
-  .then(settings => {
-    if(!settings.mappings) return Promise.reject(new Error('invalid mappings'));
-    return settings;
-  })
-  .then(settings => { console.log(`Mappings ${chalk.green.underline(name || settings.name || '-')} for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`); return settings;})
-  .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed')) : settings)
-  .then(settings => Boolean(name || settings.name) ? settings : Promise.reject(`Enter a deployment name`))
-  .then(settings => fetch(`${settings.url}/deploys/${name || settings.name}/mappings`, { method: 'PUT', body: JSON.stringify({serviceMappings: settings.mappings || ''}), headers: { Authorization: `Bearer ${settings.token}`, 'Content-Type': 'application/json' } })
-    .then(response => response.status >= 400 ? Promise.reject(new Error(`Response error: ${response.statusText}`)) : response)
-    .then(response => response.json())
-    .then(data => Object.assign(settings, data))
-    .then(data => Boolean(data.message) ? Promise.reject(new Error(data.message)) : data)
-    .then(data => configuration.load().then(settings => configuration.save(Object.assign(settings, {mappings: data.serviceMappings})))))
-  .then(data => {
-    copyPaste.copy(`https://${data.domain || data.alias || data.serviceUrl || ''}`);
-
-    let message = chalk.green(`Mappings for ${chalk.bold(data.name || data.name)} updated!\n\n`);
-    message += chalk.gray(`URL     : ${chalk.white(`https://${data.domain || data.alias || data.serviceUrl || ''}`)}\n`);
-    if(!data.mappings) message += chalk.gray(`Mappings : ${chalk.white('-')}\n`);
-    if(data.mappings) {
-      Object.keys(data.mappings).forEach(map => {
-        message +=  chalk.gray(`Mapping : ${chalk.white(map)} ${chalk.gray('->')} ${chalk.white(`${data.mappings[map]}`)}\n`);
+    .load()
+    .then(settings => Object.assign({}, settings, {mappings: Object.assign({}, settings.mappings, routeMappings)}))
+    .then(settings => {
+      if (!settings.mappings) return Promise.reject(new Error('invalid mappings'));
+      return settings;
+    })
+    .then(settings => {
+      console.log(
+        `Mappings ${chalk.green.underline(name || settings.name || '-')} for ${chalk.green.underline(
+          settings.username || '-'
+        )} on ${chalk.green.underline(settings.url || '-')}`
+      );
+      return settings;
+    })
+    .then(
+      settings =>
+        Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed')) : settings
+    )
+    .then(settings => (Boolean(name || settings.name) ? settings : Promise.reject(`Enter a deployment name`)))
+    .then(settings =>
+      fetch(`${settings.url}/deploys/${name || settings.name}/mappings`, {
+        method: 'PUT',
+        body: JSON.stringify({serviceMappings: settings.mappings || ''}),
+        headers: {Authorization: `Bearer ${settings.token}`, 'Content-Type': 'application/json'}
       })
-    }
-    message += `\n${chalk.gray('URL copied to clipboard.')}`;
-    console.log(boxen(message, {padding: 1, borderColor: 'gray', margin: 1}));
+        .then(
+          response =>
+            response.status >= 400 ? Promise.reject(new Error(`Response error: ${response.statusText}`)) : response
+        )
+        .then(response => response.json())
+        .then(data => Object.assign(settings, data))
+        .then(data => (Boolean(data.message) ? Promise.reject(new Error(data.message)) : data))
+        .then(data =>
+          configuration
+            .load()
+            .then(settings => configuration.save(Object.assign(settings, {mappings: data.serviceMappings})))
+        )
+    )
+    .then(data => {
+      copyPaste.copy(`https://${data.domain || data.alias || data.serviceUrl || ''}`);
 
-    process.exit(0);
-  })
-  .catch(err => {
-    if(err.message === 'canceled') {
-      console.log(chalk.yellow('\nAborted operation.'));
-      return process.exit(0);
-    }
+      let message = chalk.green(`Mappings for ${chalk.bold(data.name || data.name)} updated!\n\n`);
+      message += chalk.gray(
+        `URL     : ${chalk.white(`https://${data.domain || data.alias || data.serviceUrl || ''}`)}\n`
+      );
+      if (!data.mappings) message += chalk.gray(`Mappings : ${chalk.white('-')}\n`);
+      if (data.mappings) {
+        Object.keys(data.mappings).forEach(map => {
+          message += chalk.gray(
+            `Mapping : ${chalk.white(map)} ${chalk.gray('->')} ${chalk.white(`${data.mappings[map]}`)}\n`
+          );
+        });
+      }
+      message += `\n${chalk.gray('URL copied to clipboard.')}`;
+      console.log(boxen(message, {padding: 1, borderColor: 'gray', margin: 1}));
 
-    if(err.message === 'invalid mappings') {
-      console.error(chalk.red(`Invalid route mappings. Enter ${chalk.bold('dropstack help mappings')} to read more introductions.`));
+      process.exit(0);
+    })
+    .catch(err => {
+      if (err.message === 'canceled') {
+        console.log(chalk.yellow('\nAborted operation.'));
+        return process.exit(0);
+      }
+
+      if (err.message === 'invalid mappings') {
+        console.error(
+          chalk.red(
+            `Invalid route mappings. Enter ${chalk.bold('dropstack help mappings')} to read more introductions.`
+          )
+        );
+        process.exit(1);
+      }
+
+      if (err.message.includes('Unexpected token')) {
+        console.error(
+          chalk.red(
+            `Invalid route mappings. Enter ${chalk.bold('dropstack help mappings')} to read more introductions.`
+          )
+        );
+        process.exit(1);
+      }
+
+      if (err.message === 'Sign in failed') {
+        console.error(
+          chalk.red(`\nCredentials not found. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`)
+        );
+        process.exit(1);
+      }
+
+      if (err.message === 'Unauthorized') {
+        console.error(
+          chalk.red(`\nUnauthorized. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`)
+        );
+        process.exit(1);
+      }
+
+      if (err.message === 'Service not found') {
+        console.error(
+          chalk.red(
+            `\nService not found. Wrong account? Use ${chalk.bold(
+              'dropstack login <url>'
+            )} to verifiy your credentials.`
+          )
+        );
+        process.exit(1);
+      }
+
+      if (err.message === 'Not found') {
+        console.error(
+          chalk.red(`\nServer communication error occurred! Retry later please.\nError: ${chalk.gray(err.message)}`)
+        );
+        process.exit(1);
+      }
+
+      console.error(chalk.red(`\nAn unexpected error occurred!\nError: ${chalk.gray(err.message)}`));
       process.exit(1);
-    }
-
-    if(err.message.includes('Unexpected token')) {
-      console.error(chalk.red(`Invalid route mappings. Enter ${chalk.bold('dropstack help mappings')} to read more introductions.`));
-      process.exit(1);
-    }
-
-    if(err.message === 'Sign in failed') {
-      console.error(chalk.red(`\nCredentials not found. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
-      process.exit(1);
-    }
-
-    if(err.message === 'Unauthorized') {
-      console.error(chalk.red(`\nUnauthorized. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
-      process.exit(1);
-    }
-
-    if(err.message === 'Service not found') {
-      console.error(chalk.red(`\nService not found. Wrong account? Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
-      process.exit(1);
-    }
-
-    if(err.message === 'Not found') {
-      console.error(chalk.red(`\nServer communication error occurred! Retry later please.\nError: ${chalk.gray(err.message)}`));
-      process.exit(1);
-    }
-
-    console.error(chalk.red(`\nAn unexpected error occurred!\nError: ${chalk.gray(err.message)}`));
-    process.exit(1);
-  });
+    });
 }

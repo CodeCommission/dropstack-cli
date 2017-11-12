@@ -15,62 +15,103 @@ program
   .action(name => ssl({name: name, key: program.key, cert: program.cert}))
   .parse(process.argv);
 
-if(!program.args.length) ssl(program.opts());
+if (!program.args.length) ssl(program.opts());
 
 function ssl(setup) {
   const keyFile = fs.existsSync(setup.key) && fs.readFileSync(setup.key).toString();
   const certFile = fs.existsSync(setup.cert) && fs.readFileSync(setup.cert).toString();
-  if(!(keyFile && certFile)) {
-    console.error(chalk.red(`Invalid SSL content. Key or certificate file doesn't exist.\nEnter ${chalk.bold('dropstack help ssl')} to read more introductions.`));
+  if (!(keyFile && certFile)) {
+    console.error(
+      chalk.red(
+        `Invalid SSL content. Key or certificate file doesn't exist.\nEnter ${chalk.bold(
+          'dropstack help ssl'
+        )} to read more introductions.`
+      )
+    );
     process.exit(1);
   }
 
   configuration
-  .load()
-  .then(settings => { console.log(`Setup SSL ${chalk.green.underline(setup.name || settings.name || '-')} for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`); return settings;})
-  .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed')) : settings)
-  .then(settings => fetch(`${settings.url}/deploys/${setup.name || settings.name}/ssl`, { method: 'PUT', body: JSON.stringify({ssl_key: keyFile || '', ssl_cert: certFile || ''}), headers: { Authorization: `Bearer ${settings.token}`, 'Content-Type': 'application/json' } })
-    .then(response => response.status >= 400 ? Promise.reject(new Error(`Response error: ${response.statusText}`)) : response)
-    .then(response => response.json()))
-  .then(data => Boolean(data.message) ? Promise.reject(new Error(data.message)) : data)
-  .then(data => {
-    copyPaste.copy(`https://${data.serviceAlias || data.serviceUrl || ''}`);
+    .load()
+    .then(settings => {
+      console.log(
+        `Setup SSL ${chalk.green.underline(setup.name || settings.name || '-')} for ${chalk.green.underline(
+          settings.username || '-'
+        )} on ${chalk.green.underline(settings.url || '-')}`
+      );
+      return settings;
+    })
+    .then(
+      settings =>
+        Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed')) : settings
+    )
+    .then(settings =>
+      fetch(`${settings.url}/deploys/${setup.name || settings.name}/ssl`, {
+        method: 'PUT',
+        body: JSON.stringify({ssl_key: keyFile || '', ssl_cert: certFile || ''}),
+        headers: {Authorization: `Bearer ${settings.token}`, 'Content-Type': 'application/json'}
+      })
+        .then(
+          response =>
+            response.status >= 400 ? Promise.reject(new Error(`Response error: ${response.statusText}`)) : response
+        )
+        .then(response => response.json())
+    )
+    .then(data => (Boolean(data.message) ? Promise.reject(new Error(data.message)) : data))
+    .then(data => {
+      copyPaste.copy(`https://${data.serviceAlias || data.serviceUrl || ''}`);
 
-    let message = chalk.green(`SSL for ${chalk.bold(data.serviceName)} updated - ${data && data.serviceInstances && `${data.serviceInstances} running instance(s)!`}\n\n`);
-    message += `• URL: ${chalk.bold(`https://${data.serviceUrl}`)}\n`;
-    if(data && data.serviceAlias) message += `• Alias: ${chalk.bold(data.serviceAlias)}\n`;
-    message += `\n${chalk.gray('URL copied to clipboard.')}\n`;
-    console.log(boxen(message, {padding: 1, borderColor: 'gray', margin: 1}));
+      let message = chalk.green(
+        `SSL for ${chalk.bold(data.serviceName)} updated - ${data &&
+          data.serviceInstances &&
+          `${data.serviceInstances} running instance(s)!`}\n\n`
+      );
+      message += `• URL: ${chalk.bold(`https://${data.serviceUrl}`)}\n`;
+      if (data && data.serviceAlias) message += `• Alias: ${chalk.bold(data.serviceAlias)}\n`;
+      message += `\n${chalk.gray('URL copied to clipboard.')}\n`;
+      console.log(boxen(message, {padding: 1, borderColor: 'gray', margin: 1}));
 
-    process.exit(0);
-  })
-  .catch(err => {
-    if(err.message === 'canceled') {
-      console.log(chalk.yellow('\nAborted operation.'));
-      return process.exit(0);
-    }
+      process.exit(0);
+    })
+    .catch(err => {
+      if (err.message === 'canceled') {
+        console.log(chalk.yellow('\nAborted operation.'));
+        return process.exit(0);
+      }
 
-    if(err.message === 'Sign in failed') {
-      console.error(chalk.red(`\nCredentials not found. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
+      if (err.message === 'Sign in failed') {
+        console.error(
+          chalk.red(`\nCredentials not found. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`)
+        );
+        process.exit(1);
+      }
+
+      if (err.message === 'Unauthorized') {
+        console.error(
+          chalk.red(`\nUnauthorized. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`)
+        );
+        process.exit(1);
+      }
+
+      if (err.message === 'Service not found') {
+        console.error(
+          chalk.red(
+            `\nService not found. Wrong account? Use ${chalk.bold(
+              'dropstack login <url>'
+            )} to verifiy your credentials.`
+          )
+        );
+        process.exit(1);
+      }
+
+      if (err.message === 'Not found') {
+        console.error(
+          chalk.red(`\nServer communication error occurred! Retry later please.\nError: ${chalk.gray(err.message)}`)
+        );
+        process.exit(1);
+      }
+
+      console.error(chalk.red(`\nAn unexpected error occurred!\nError: ${chalk.gray(err.message)}`));
       process.exit(1);
-    }
-
-    if(err.message === 'Unauthorized') {
-      console.error(chalk.red(`\nUnauthorized. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
-      process.exit(1);
-    }
-
-    if(err.message === 'Service not found') {
-      console.error(chalk.red(`\nService not found. Wrong account? Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
-      process.exit(1);
-    }
-
-    if(err.message === 'Not found') {
-      console.error(chalk.red(`\nServer communication error occurred! Retry later please.\nError: ${chalk.gray(err.message)}`));
-      process.exit(1);
-    }
-
-    console.error(chalk.red(`\nAn unexpected error occurred!\nError: ${chalk.gray(err.message)}`));
-    process.exit(1);
-  });
+    });
 }

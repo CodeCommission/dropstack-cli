@@ -16,81 +16,107 @@ program
   .action(url => login(Object.assign({url: url, token: program.token})))
   .parse(process.argv);
 
-if(!program.args.length) login(program.opts());
+if (!program.args.length) login(program.opts());
 
 function login({url, token}) {
-  if(url && !urlRegex({exact: true}).test(url)) {
+  if (url && !urlRegex({exact: true}).test(url)) {
     console.log(chalk.red('Invalid Dropstack-Server-URL. Must be the format http(s)://host.domain.com.'));
     return process.exit(1);
   }
 
-  configuration.removeGlobalFile()
-  .then(()  => configuration.load({url}))
-  .then(settings => {
-    console.log(chalk.green(`Account information for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`));
-    console.log(chalk.yellow(`Enter your email and password to log in or sign up for free!\n`));
-    return settings;
-  })
-  .then(settings => credentials.inputEmail(settings.username).then(data => Object.assign(settings, data)))
-  .then(settings => credentials.inputPassword(settings.password).then(data => Object.assign(settings, data)))
-  .then(settings => credentials.login(settings).catch(() => credentials.signup(settings)).then(data => Object.assign(settings, data)))
-  .then(settings => {
-    if(!settings.token) return Promise.reject(new Error('Sign in failed'));
-    if(settings.error || settings.message) return Promise.reject(new Error(settings.message));
-    return settings;
-  })
-  .then(settings => configuration.save(settings))
-  .then(settings => {
-    return fetch(`${settings.url}/auth/account`, { headers: { 'Authorization': `Bearer ${settings.token}`, timeout: 10, } })
-    .then(response => response.status >= 400 ? Promise.reject(new Error(`Response error: ${response.statusText}`)) : response)
-    .then(response => response.json().then(data => Object.assign({}, data, {version: response.headers.get('x-dropstack-version'), 'support-stateful': response.headers.get('x-dropstack-stateful')})))
-    .then(data => Object.assign({}, data, settings));
-  })
-  .then(data => Boolean(data.error || data.message) ? Promise.reject(new Error(data.message)) : data)
-  .then(data => {
-    let message = `${chalk.green(`User ${chalk.bold(data.id)} logged in successful!\n\n`)}`;
-    message += `${chalk.gray(`${pad(15, 'Account ID', ' ')}: ${chalk.white(data.id)}`)}\n`;
-    message += `${chalk.gray(`${pad(15, 'Server Version', ' ')}: ${chalk.white(data.version)}`)}\n`;
-    message += `${chalk.gray(`${pad(15, 'Client Version', ' ')}: ${chalk.white(appPackage.version)}`)}\n`;
-    message += `${chalk.gray(`${pad(15, 'Server URL', ' ')}: ${chalk.white(data.url)}`)}\n`;
-    message += `${chalk.gray(`${pad(15, 'Signed up', ' ')}: ${chalk.white(new Date(data.signedUpAt))}`)}`;
-    if(data['support-stateful']) message += `\n${chalk.gray(`${pad(15, 'Stateful', ' ')}: ${chalk.white(data['support-stateful'])}`)}`;
-    if(data.metadata && data.metadata.plan) message += `\n${chalk.gray(`${pad(15, 'Plan (beta)', ' ')}: ${chalk.white(data.metadata && data.metadata.plan || '-')}`)}`;
-    if(token) message += `\n${chalk.gray(`${pad(15, 'JSON Web Token', ' ')}: ${chalk.white(data.token)}`)}`;
-    console.log(boxen(message, {padding: 1, borderColor: 'gray', margin: 1}));
-    process.exit(0);
-  })
-  .catch(err => {
-    if(err.message === 'canceled') {
-      console.log(chalk.yellow('\nAborted operation.'));
-      return process.exit(0);
-    }
+  configuration
+    .removeGlobalFile()
+    .then(() => configuration.load({url}))
+    .then(settings => {
+      console.log(
+        chalk.green(
+          `Account information for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(
+            settings.url || '-'
+          )}`
+        )
+      );
+      console.log(chalk.yellow(`Enter your email and password to log in or sign up for free!\n`));
+      return settings;
+    })
+    .then(settings => credentials.inputEmail(settings.username).then(data => Object.assign(settings, data)))
+    .then(settings => credentials.inputPassword(settings.password).then(data => Object.assign(settings, data)))
+    .then(settings =>
+      credentials
+        .login(settings)
+        .catch(() => credentials.signup(settings))
+        .then(data => Object.assign(settings, data))
+    )
+    .then(settings => {
+      if (!settings.token) return Promise.reject(new Error('Sign in failed'));
+      if (settings.error || settings.message) return Promise.reject(new Error(settings.message));
+      return settings;
+    })
+    .then(settings => configuration.save(settings))
+    .then(settings => {
+      return fetch(`${settings.url}/auth/account`, {headers: {Authorization: `Bearer ${settings.token}`, timeout: 10}})
+        .then(
+          response =>
+            response.status >= 400 ? Promise.reject(new Error(`Response error: ${response.statusText}`)) : response
+        )
+        .then(response =>
+          response.json().then(data => Object.assign({}, data, {version: response.headers.get('x-dropstack-version')}))
+        )
+        .then(data => Object.assign({}, data, settings));
+    })
+    .then(data => (Boolean(data.error || data.message) ? Promise.reject(new Error(data.message)) : data))
+    .then(data => {
+      let message = `${chalk.green(`User ${chalk.bold(data.id)} logged in successful!\n\n`)}`;
+      message += `${chalk.gray(`${pad(15, 'Account ID', ' ')}: ${chalk.white(data.id)}`)}\n`;
+      message += `${chalk.gray(`${pad(15, 'Server Version', ' ')}: ${chalk.white(data.version)}`)}\n`;
+      message += `${chalk.gray(`${pad(15, 'Client Version', ' ')}: ${chalk.white(appPackage.version)}`)}\n`;
+      message += `${chalk.gray(`${pad(15, 'Server URL', ' ')}: ${chalk.white(data.url)}`)}`;
+      if (data.signedUpAt)
+        message += `\n${chalk.gray(`${pad(15, 'Signed up', ' ')}: ${chalk.white(new Date(data.signedUpAt))}`)}`;
+      if (data.metadata && data.metadata.plan)
+        message += `\n${chalk.gray(
+          `${pad(15, 'Plan (beta)', ' ')}: ${chalk.white((data.metadata && data.metadata.plan) || '-')}`
+        )}`;
+      if (token) message += `\n${chalk.gray(`${pad(15, 'JSON Web Token', ' ')}: ${chalk.white(data.token)}`)}`;
+      console.log(boxen(message, {padding: 1, borderColor: 'gray', margin: 1}));
+      process.exit(0);
+    })
+    .catch(err => {
+      if (err.message === 'canceled') {
+        console.log(chalk.yellow('\nAborted operation.'));
+        return process.exit(0);
+      }
 
-    if(err.message === 'The user already exists') {
-      console.error(chalk.red(`\nSign in failed. This account already exists.`));
-      return process.exit(1);
-    }
+      if (err.message === 'The user already exists') {
+        console.error(chalk.red(`\nSign in failed. This account already exists.`));
+        return process.exit(1);
+      }
 
-    if(err.message === 'Sign in failed') {
-      console.error(chalk.red(`\nCredentials not found. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
+      if (err.message === 'Sign in failed') {
+        console.error(
+          chalk.red(`\nCredentials not found. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`)
+        );
+        process.exit(1);
+      }
+
+      if (err.message === 'Unauthorized') {
+        console.error(
+          chalk.red(`\nUnauthorized. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`)
+        );
+        process.exit(1);
+      }
+
+      if (err.message === 'Not found') {
+        console.error(
+          chalk.red(`\nServer communication error occurred! Retry later please.\nError: ${chalk.gray(err.message)}`)
+        );
+        process.exit(1);
+      }
+
+      console.error(chalk.red(`\nAn unexpected error occurred!\nError: ${chalk.gray(err.message)}`));
       process.exit(1);
-    }
-
-    if(err.message === 'Unauthorized') {
-      console.error(chalk.red(`\nUnauthorized. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
-      process.exit(1);
-    }
-
-    if(err.message === 'Not found') {
-      console.error(chalk.red(`\nServer communication error occurred! Retry later please.\nError: ${chalk.gray(err.message)}`));
-      process.exit(1);
-    }
-
-    console.error(chalk.red(`\nAn unexpected error occurred!\nError: ${chalk.gray(err.message)}`));
-    process.exit(1);
-  });
+    });
 }
 
 function pad(width, string, padding) {
-  return (width <= string.length) ? string : pad(width, string + padding, padding)
+  return width <= string.length ? string : pad(width, string + padding, padding);
 }

@@ -9,20 +9,25 @@ const configuration = require('../lib/settings')();
 
 program.parse(process.argv);
 
-if(!program.args.length) logout();
+if (!program.args.length) logout();
 
 function logout() {
   configuration
-  .load()
-  .then(settings => { console.log(`Logout for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`); return settings;})
-  .then(()  => configuration.removeGlobalFile())
-  .then(() => {
-    let message = `${chalk.green(`Logged out!`)}`;
-    console.log(boxen(message, {padding: 1, borderColor: 'gray', margin: 1}));
-    process.exit(0);
-  })
-  .catch(err => {
-    console.error(chalk.red(`\nAn unexpected error occurred!\nError: ${chalk.gray(err.message)}`));
-    process.exit(1);
-  })
+    .load()
+    .then(settings => {
+      console.log(
+        `Logout for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`
+      );
+      return settings;
+    })
+    .then(() => configuration.removeGlobalFile())
+    .then(() => {
+      let message = `${chalk.green(`Logged out!`)}`;
+      console.log(boxen(message, {padding: 1, borderColor: 'gray', margin: 1}));
+      process.exit(0);
+    })
+    .catch(err => {
+      console.error(chalk.red(`\nAn unexpected error occurred!\nError: ${chalk.gray(err.message)}`));
+      process.exit(1);
+    });
 }

@@ -14,65 +14,106 @@ program
   .action(name => domain({name: name || '', url: program.url}))
   .parse(process.argv);
 
-if(!program.args.length) domain(program.opts());
+if (!program.args.length) domain(program.opts());
 
 function domain({name, url}) {
-  if(!url) {
-    console.error(chalk.red(`Invalid domain name.\nEnter ${chalk.bold('dropstack help domain')} to read more introductions.`));
+  if (!url) {
+    console.error(
+      chalk.red(`Invalid domain name.\nEnter ${chalk.bold('dropstack help domain')} to read more introductions.`)
+    );
     process.exit(1);
   }
 
   configuration
-  .load()
-  .then(settings => { console.log(`Domain ${chalk.green.underline(name || settings.name || '-')} for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`); return settings;})
-  .then(settings => Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed')) : settings)
-  .then(settings => Boolean(name || settings.name) ? settings : Promise.reject(`Deployment name missing`))
-  .then(settings => fetch(`${settings.url}/deploys/${name || settings.name}/alias`, { method: 'PUT', body: JSON.stringify({serviceDomain: url || '', serviceAlias: url || ''}), headers: { Authorization: `Bearer ${settings.token}`, 'Content-Type': 'application/json' } })
-    .then(response => response.status >= 400 ? Promise.reject(new Error(`Response error: ${response.statusText}`)) : response)
-    .then(response => response.json())
-    .then(data => Object.assign(settings, data))
-    .then(data => Boolean(data.message) ? Promise.reject(new Error(data.message)) : data)
-    .then(data => configuration.load().then(settings => configuration.save(Object.assign(settings, {alias: data.serviceAlias, domain: data.serviceDomain})))))
-  .then(data => {
-    copyPaste.copy(`https://${data.domain || data.alias || data.serviceUrl || ''}`);
+    .load()
+    .then(settings => {
+      console.log(
+        `Domain ${chalk.green.underline(name || settings.name || '-')} for ${chalk.green.underline(
+          settings.username || '-'
+        )} on ${chalk.green.underline(settings.url || '-')}`
+      );
+      return settings;
+    })
+    .then(
+      settings =>
+        Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed')) : settings
+    )
+    .then(settings => (Boolean(name || settings.name) ? settings : Promise.reject(`Deployment name missing`)))
+    .then(settings =>
+      fetch(`${settings.url}/deploys/${name || settings.name}/alias`, {
+        method: 'PUT',
+        body: JSON.stringify({serviceDomain: url || '', serviceAlias: url || ''}),
+        headers: {Authorization: `Bearer ${settings.token}`, 'Content-Type': 'application/json'}
+      })
+        .then(
+          response =>
+            response.status >= 400 ? Promise.reject(new Error(`Response error: ${response.statusText}`)) : response
+        )
+        .then(response => response.json())
+        .then(data => Object.assign(settings, data))
+        .then(data => (Boolean(data.message) ? Promise.reject(new Error(data.message)) : data))
+        .then(data =>
+          configuration
+            .load()
+            .then(settings =>
+              configuration.save(Object.assign(settings, {alias: data.serviceAlias, domain: data.serviceDomain}))
+            )
+        )
+    )
+    .then(data => {
+      copyPaste.copy(`https://${data.domain || data.alias || data.serviceUrl || ''}`);
 
-    let message = chalk.green(`Domain for ${chalk.bold(data.name)} updated - ${data.instances} running instance(s)!\n\n`);
-    message += `• URL: ${chalk.bold(`https://${data.serviceUrl}`)}\n`;
-    if(data.domain || data.alias) message += `• Domain: ${chalk.bold('http://' + (data.domain || data.alias))}\n`;
-    message += `\n${chalk.gray('URL copied to clipboard.')}\n`;
-    console.log(boxen(message, {padding: 1, borderColor: 'gray', margin: 1}));
+      let message = chalk.green(
+        `Domain for ${chalk.bold(data.name)} updated - ${data.instances} running instance(s)!\n\n`
+      );
+      message += `• URL: ${chalk.bold(`https://${data.serviceUrl}`)}\n`;
+      if (data.domain || data.alias) message += `• Domain: ${chalk.bold('http://' + (data.domain || data.alias))}\n`;
+      message += `\n${chalk.gray('URL copied to clipboard.')}\n`;
+      console.log(boxen(message, {padding: 1, borderColor: 'gray', margin: 1}));
 
-    process.exit(0);
-  })
-  .catch(err => {
-    process.stderr.write('\x1B[?25h'); //show terminal cursor
+      process.exit(0);
+    })
+    .catch(err => {
+      process.stderr.write('\x1B[?25h'); //show terminal cursor
 
-    if(err.message === 'canceled') {
-      console.log(chalk.yellow('\nAborted operation.'));
-      return process.exit(0);
-    }
+      if (err.message === 'canceled') {
+        console.log(chalk.yellow('\nAborted operation.'));
+        return process.exit(0);
+      }
 
-    if(err.message === 'Sign in failed') {
-      console.error(chalk.red(`\nCredentials not found. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
+      if (err.message === 'Sign in failed') {
+        console.error(
+          chalk.red(`\nCredentials not found. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`)
+        );
+        process.exit(1);
+      }
+
+      if (err.message === 'Unauthorized') {
+        console.error(
+          chalk.red(`\nUnauthorized. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`)
+        );
+        process.exit(1);
+      }
+
+      if (err.message === 'Service not found') {
+        console.error(
+          chalk.red(
+            `\nService not found. Wrong account? Use ${chalk.bold(
+              'dropstack login <url>'
+            )} to verifiy your credentials.`
+          )
+        );
+        process.exit(1);
+      }
+
+      if (err.message === 'Not found') {
+        console.error(
+          chalk.red(`\nServer communication error occurred! Retry later please.\nError: ${chalk.gray(err.message)}`)
+        );
+        process.exit(1);
+      }
+
+      console.error(chalk.red(`\nAn unexpected error occurred!\nError: ${chalk.gray(err.message)}`));
       process.exit(1);
-    }
-
-    if(err.message === 'Unauthorized') {
-      console.error(chalk.red(`\nUnauthorized. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
-      process.exit(1);
-    }
-
-    if(err.message === 'Service not found') {
-      console.error(chalk.red(`\nService not found. Wrong account? Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
-      process.exit(1);
-    }
-
-    if(err.message === 'Not found') {
-      console.error(chalk.red(`\nServer communication error occurred! Retry later please.\nError: ${chalk.gray(err.message)}`));
-      process.exit(1);
-    }
-
-    console.error(chalk.red(`\nAn unexpected error occurred!\nError: ${chalk.gray(err.message)}`));
-    process.exit(1);
-  });
+    });
 }

@@ -1,44 +1,36 @@
 #!/usr/bin/env node
-const fs = require("fs");
-const path = require("path");
-const os = require("os");
-const zlib = require("zlib");
-const program = require("commander");
-const boxen = require("boxen");
-const chalk = require("chalk");
-const tar = require("tar");
-const minimatch = require("minimatch");
-const fstream = require("fstream");
-const fetch = require("node-fetch");
-const copyPaste = require("copy-paste");
-const urlRegex = require("url-regex");
-const FormData = require("form-data");
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
+const zlib = require('zlib');
+const program = require('commander');
+const boxen = require('boxen');
+const chalk = require('chalk');
+const tar = require('tar');
+const minimatch = require('minimatch');
+const fstream = require('fstream');
+const fetch = require('node-fetch');
+const copyPaste = require('copy-paste');
+const urlRegex = require('url-regex');
+const FormData = require('form-data');
 const gzip = zlib.createGzip();
-const EventSource = require("eventsource");
-const credentials = require("../lib/credentials")();
-const configurationSettings = require("../lib/settings");
+const EventSource = require('eventsource');
+const credentials = require('../lib/credentials')();
+const configurationSettings = require('../lib/settings');
 let configuration;
 
 program
-  .arguments("[folder]")
-  .option("-t, --token [token]", "Use JSON Web Token credentials", "")
-  .option("-a, --alias [name]", "Set alias of deployment", "")
-  .option("-u, --url [url]", "Set server URL of deployment", "")
+  .arguments('[folder]')
+  .option('-t, --token [token]', 'Use JSON Web Token credentials', '')
+  .option('-a, --alias [name]', 'Set alias of deployment', '')
+  .option('-u, --url [url]', 'Set server URL of deployment', '')
+  .option('-e, --environment [name]', 'Set an environment name of deployment', '')
+  .option('-y, --type [name]', 'Set type of deployment manually', '')
+  .option('-s, --https', 'Enable HTTPS/HTTP2/SPDY of deployment', false)
+  .option('-m, --alive-endpoint [path]', 'Alive monitoring endpoint (/info)', '')
   .option(
-    "-e, --environment [name]",
-    "Set an environment name of deployment",
-    ""
-  )
-  .option("-y, --type [name]", "Set type of deployment manually", "")
-  .option("-s, --https", "Enable HTTPS/HTTP2/SPDY of deployment", false)
-  .option(
-    "-m, --alive-endpoint [path]",
-    "Alive monitoring endpoint (/info)",
-    ""
-  )
-  .option(
-    "-v, --variables [items]",
-    "Add variables (KEY=value)",
+    '-v, --variables [items]',
+    'Add variables (KEY=value)',
     (item, list) => {
       list.push(item);
       return list;
@@ -46,21 +38,18 @@ program
     []
   )
   .option(
-    "-x, --excludes [items]",
-    "Exclude files and folders (file glob pattern)",
+    '-x, --excludes [items]',
+    'Exclude files and folders (file glob pattern)',
     (item, list) => {
       list.push(item);
       return list;
     },
     []
   )
-  .option(
-    "-i, --instances [number]",
-    "Number of running instances for deployment",
-    0
-  )
-  .option("-o, --verbose", "Enable verbose deployment output")
-  .option("-p, --stateful", "Enable stateful deployment.")
+  .option('-i, --instances [number]', 'Number of running instances for deployment', 0)
+  .option('-o, --verbose', 'Enable verbose deployment output')
+  .option('-p, --stateful', 'Enable stateful deployment.')
+  .option('-c, --compress', 'Enable compression.')
   .parse(process.argv);
 
 deploy(
@@ -82,36 +71,27 @@ function deploy({
   aliveEndpoint,
   verbose,
   excludes,
-  stateful
+  stateful,
+  compress
 }) {
-  if (url && !urlRegex({ exact: true }).test(url)) {
-    console.log(
-      chalk.red(
-        "Invalid Dropstack-Server-URL. Must be the format http(s)://host.domain.com."
-      )
-    );
+  if (url && !urlRegex({exact: true}).test(url)) {
+    console.log(chalk.red('Invalid Dropstack-Server-URL. Must be the format http(s)://host.domain.com.'));
     return process.exit(1);
   }
 
-  process.stderr.write("\x1B[?25l"); //hide terminal cursor
-  configuration = configurationSettings(
-    `.dropstack${environment ? "." + environment + "." : "."}json`
-  );
+  process.stderr.write('\x1B[?25l'); //hide terminal cursor
+  configuration = configurationSettings(`.dropstack${environment ? '.' + environment + '.' : '.'}json`);
 
   const args = path.resolve(folder);
   const pathObj = path.parse(args);
   const tarPath = path.join(os.tmpdir(), `${pathObj.name}.tar.gz`);
   const dirDest = fs.createWriteStream(tarPath);
   const packer = tar
-    .Pack({ noProprietary: true, fromBase: true })
-    .on("error", err =>
-      console.error(
-        chalk.red(
-          `\nAn unexpected error occurred!\nMessage: ${chalk.gray(err.message)}`
-        )
-      )
+    .Pack({noProprietary: true, fromBase: true})
+    .on('error', err =>
+      console.error(chalk.red(`\nAn unexpected error occurred!\nMessage: ${chalk.gray(err.message)}`))
     )
-    .on("end", () =>
+    .on('end', () =>
       sync({
         tarPath,
         variables,
@@ -130,41 +110,47 @@ function deploy({
 
   configuration.load().then(settings => {
     console.log(
-      `Deploying ${chalk.green.underline(
-        settings.alias || settings.name || "-"
-      )} for ${chalk.green.underline(
-        settings.username || "-"
-      )} on ${chalk.green.underline(url || settings.url || "-")}`
+      `Deploying ${chalk.green.underline(settings.alias || settings.name || '-')} for ${chalk.green.underline(
+        settings.username || '-'
+      )} on ${chalk.green.underline(url || settings.url || '-')}`
     );
 
     if (verbose) {
-      console.log(chalk.gray(`${settings.name || "--------"} packing ...`));
+      console.log(chalk.gray(`${settings.name || '--------'} packing ...`));
     } else {
       process.stdout.cursorTo(0);
       process.stdout.clearLine();
-      process.stdout.write(
-        chalk.gray(`${settings.name || "--------"} Packing ...`)
-      );
+      process.stdout.write(chalk.gray(`${settings.name || '--------'} Packing ...`));
     }
-    fstream
-      .Reader({
-        path: args,
-        type: "Directory",
-        follow: false,
-        filter: x => tarFileFilter(x, settings.excludes)
-      })
-      .on("error", err =>
-        console.error(
-          chalk.red(
-            `\nAn unexpected error occurred!\nMessage: ${chalk.gray(
-              err.message
-            )}`
-          )
+
+    if (compress) {
+      fstream
+        .Reader({
+          path: args,
+          type: 'Directory',
+          follow: false,
+          filter: x => tarFileFilter(x, settings.excludes)
+        })
+        .on('error', err =>
+          console.error(chalk.red(`\nAn unexpected error occurred!\nMessage: ${chalk.gray(err.message)}`))
         )
-      )
-      .pipe(packer)
-      .pipe(gzip)
-      .pipe(dirDest);
+        .pipe(packer)
+        .pipe(gzip)
+        .pipe(dirDest);
+    } else {
+      fstream
+        .Reader({
+          path: args,
+          type: 'Directory',
+          follow: false,
+          filter: x => tarFileFilter(x, settings.excludes)
+        })
+        .on('error', err =>
+          console.error(chalk.red(`\nAn unexpected error occurred!\nMessage: ${chalk.gray(err.message)}`))
+        )
+        .pipe(packer)
+        .pipe(dirDest);
+    }
   });
 }
 
@@ -195,12 +181,8 @@ function sync({
       stateful
     })
     .then(settings => {
-      if (!settings["support-stateful"] && stateful)
-        return Promise.reject(
-          new Error(
-            `Stateful service deployment is not supported on ${settings.url}`
-          )
-        );
+      if (!settings['support-stateful'] && stateful)
+        return Promise.reject(new Error(`Stateful service deployment is not supported on ${settings.url}`));
       if (settings.message) return Promise.reject(new Error(settings.message));
       return settings;
     })
@@ -208,100 +190,69 @@ function sync({
     .then(settings => configuration.save(settings))
     .then(settings => {
       let message = chalk.green(
-        `Deployment ${chalk.bold(
-          settings.name || "-"
-        )} completed - ${settings &&
+        `Deployment ${chalk.bold(settings.name || '-')} completed - ${settings &&
           settings.instances &&
           `${settings.instances} running instance(s)!`}\n\n`
       );
-      message += chalk.grey(
-        `URL   : ${chalk.white(`https://${settings.serviceUrl}`)}\n`
-      );
-      if (settings && settings.alias)
-        message += chalk.grey(`Alias : ${chalk.white(settings.alias)}\n`);
-      message += `\n${chalk.gray("URL copied to clipboard.\n")}`;
-      console.log(
-        boxen(message, { padding: 1, borderColor: "gray", margin: 1 })
-      );
+      message += chalk.grey(`URL   : ${chalk.white(`https://${settings.serviceUrl}`)}\n`);
+      if (settings && settings.alias) message += chalk.grey(`Alias : ${chalk.white(settings.alias)}\n`);
+      message += `\n${chalk.gray('URL copied to clipboard.\n')}`;
+      console.log(boxen(message, {padding: 1, borderColor: 'gray', margin: 1}));
     })
     .catch(err => {
-      process.stderr.write("\x1B[?25h"); //show terminal cursor
+      process.stderr.write('\x1B[?25h'); //show terminal cursor
 
-      if (err.message === "canceled") {
-        console.log(chalk.yellow("\nAborted operation."));
+      if (err.message === 'canceled') {
+        console.log(chalk.yellow('\nAborted operation.'));
         return process.exit(0);
       }
 
-      if (err.message.includes("Error:")) {
+      if (err.message.includes('Error:')) {
         console.error(
-          chalk.red(
-            `\nServer error occurred! Open an issue and retry later please.\nError: ${chalk.gray(
-              err.message
-            )}`
-          )
+          chalk.red(`\nServer error occurred! Open an issue and retry later please.\nError: ${chalk.gray(err.message)}`)
         );
         return process.exit(1);
       }
 
-      if (
-        err.message.includes("Stateful service deployment is not supported")
-      ) {
+      if (err.message.includes('Stateful service deployment is not supported')) {
         console.error(chalk.red(`\n${err.message}`));
         return process.exit(1);
       }
 
-      if (err.message.includes("building error")) {
-        console.error(
-          chalk.red(`\nVerify your Dockerfile, please!\nError: ${err.message}`)
-        );
+      if (err.message.includes('building error')) {
+        console.error(chalk.red(`\nVerify your Dockerfile, please!\nError: ${err.message}`));
         return process.exit(1);
       }
 
-      if (err.message === "Sign in failed") {
+      if (err.message === 'Sign in failed') {
         console.error(
-          chalk.red(
-            `\nCredentials not found. Use ${chalk.bold(
-              "dropstack login <url>"
-            )} to verifiy your credentials.`
-          )
+          chalk.red(`\nCredentials not found. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`)
         );
         process.exit(1);
       }
 
-      if (err.message === "invalid signature") {
+      if (err.message === 'invalid signature') {
         console.error(
-          chalk.red(
-            `\nJWT signature invalid. Use ${chalk.bold(
-              "dropstack login <url>"
-            )} to verifiy your credentials.`
-          )
+          chalk.red(`\nJWT signature invalid. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`)
         );
         process.exit(1);
       }
 
-      if (err.message === "jwt malformed") {
+      if (err.message === 'jwt malformed') {
         console.error(
-          chalk.red(
-            `\nJWT signature invalid. Use ${chalk.bold(
-              "dropstack login <url>"
-            )} to verifiy your credentials.`
-          )
+          chalk.red(`\nJWT signature invalid. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`)
         );
         process.exit(1);
       }
 
-      if (err.message === "JWT auth invalid") {
+      if (err.message === 'JWT auth invalid') {
         console.error(
-          chalk.red(
-            `\JWT auth invalid. Use ${chalk.bold(
-              "dropstack login <url>"
-            )} to verifiy your credentials.`
-          )
+          chalk.red(`\JWT auth invalid. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`)
         );
         process.exit(1);
       }
 
-      if (err.message.includes("Deployment error occurred")) {
+      if (err.message.includes('Deployment error occurred')) {
         console.error(
           chalk.red(
             `\nSorry, deployment error occurred.  Open an issue and retry later please.\nError: ${err.message}.`
@@ -310,7 +261,7 @@ function sync({
         return process.exit(1);
       }
 
-      if (err.message === "Unexpected server communication error") {
+      if (err.message === 'Unexpected server communication error') {
         console.error(
           chalk.red(
             `\nSorry, unexpected server communication error. Open an issue and retry later please.\nError: ${err.message}.`
@@ -319,40 +270,36 @@ function sync({
         return process.exit(1);
       }
 
-      if (err.message === "Unauthorized") {
+      if (err.message === 'Unauthorized') {
         console.error(
-          chalk.red(
-            `\nUnauthorized. Use ${chalk.bold(
-              "dropstack login <url>"
-            )} to verifiy your credentials.`
-          )
+          chalk.red(`\nUnauthorized. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`)
         );
         process.exit(1);
       }
 
-      if (err.message === "Service already assigned") {
+      if (err.message === 'Service already assigned') {
         console.error(
           chalk.red(
             `\nService already assigned. Wrong account? Use ${chalk.bold(
-              "dropstack login <url>"
+              'dropstack login <url>'
             )} to verifiy your credentials.`
           )
         );
         process.exit(1);
       }
 
-      if (err.message === "error: Service already assigned") {
+      if (err.message === 'error: Service already assigned') {
         console.error(
           chalk.red(
             `\nService already assigned. Wrong account? Use ${chalk.bold(
-              "dropstack login <url>"
+              'dropstack login <url>'
             )} to verifiy your credentials.`
           )
         );
         process.exit(1);
       }
 
-      if (err.message === "Not found") {
+      if (err.message === 'Not found') {
         console.error(
           chalk.red(
             `\nServer communication error occurred! Open an issue and retry later please.\nError: ${chalk.gray(
@@ -365,9 +312,7 @@ function sync({
 
       console.error(
         chalk.red(
-          `\nAn unexpected error occurred! Open an issue and retry later please.\nError: ${chalk.gray(
-            err.message
-          )}`
+          `\nAn unexpected error occurred! Open an issue and retry later please.\nError: ${chalk.gray(err.message)}`
         )
       );
       process.exit(1);
@@ -381,48 +326,37 @@ function deployment(settings, verbose, token, url) {
   const tarStream = fs.createReadStream(settings.tarPath);
   const stat = fs.statSync(settings.tarPath);
   const fileSize = (stat.size / (1024 * 1024)).toFixed(2);
-  const spin = " ⢹⢺⢼⣸⣇⡧⡗⡏".split("");
+  const spin = ' ⢹⢺⢼⣸⣇⡧⡗⡏'.split('');
   let n = 1;
 
   if (verbose) {
-    console.log(
-      chalk.gray(`${settings.name || "--------"} uploading [${fileSize} MB]`)
-    );
+    console.log(chalk.gray(`${settings.name || '--------'} uploading [${fileSize} MB]`));
   } else {
     process.stdout.cursorTo(0);
     process.stdout.clearLine();
-    process.stdout.write(
-      chalk.gray(`${chalk.white(spin[n++])} Uploading [${fileSize} MB]`)
-    );
+    process.stdout.write(chalk.gray(`${chalk.white(spin[n++])} Uploading [${fileSize} MB]`));
   }
 
-  if (settings.name) form.append("serviceName", settings.name);
-  if (settings.alias) form.append("serviceAlias", settings.alias);
-  if (settings.https) form.append("serviceHTTPS", settings.https.toString());
-  if (settings.type) form.append("serviceType", settings.type);
-  if (settings.instances) form.append("serviceInstances", settings.instances);
-  if (settings.aliveEndpoint)
-    form.append("serviceAliveEndpoint", settings.aliveEndpoint);
-  if (settings.variables) form.append("serviceVariables", settings.variables);
-  if (settings.excludes)
-    form.append("serviceExcludes", JSON.stringify(settings.excludes));
-  if (settings.mappings)
-    form.append("serviceMappings", JSON.stringify(settings.mappings));
-  if (settings.stateful)
-    form.append("serviceStateful", settings.stateful.toString());
+  if (settings.name) form.append('serviceName', settings.name);
+  if (settings.alias) form.append('serviceAlias', settings.alias);
+  if (settings.https) form.append('serviceHTTPS', settings.https.toString());
+  if (settings.type) form.append('serviceType', settings.type);
+  if (settings.instances) form.append('serviceInstances', settings.instances);
+  if (settings.aliveEndpoint) form.append('serviceAliveEndpoint', settings.aliveEndpoint);
+  if (settings.variables) form.append('serviceVariables', settings.variables);
+  if (settings.excludes) form.append('serviceExcludes', JSON.stringify(settings.excludes));
+  if (settings.mappings) form.append('serviceMappings', JSON.stringify(settings.mappings));
+  if (settings.stateful) form.append('serviceStateful', settings.stateful.toString());
 
   let uploadedSize = 0;
-  tarStream.on("data", buffer => {
+  tarStream.on('data', buffer => {
     uploadedSize += buffer.length;
     if (verbose) {
       console.log(
         chalk.gray(
-          `${settings.name || "--------"} ${(uploadedSize /
-            stat.size *
-            100
-          ).toFixed(2)}% uploaded [${(uploadedSize / (1024 * 1024)).toFixed(
-            2
-          )} MB]`
+          `${settings.name || '--------'} ${(uploadedSize / stat.size * 100).toFixed(2)}% uploaded [${(uploadedSize /
+            (1024 * 1024)
+          ).toFixed(2)} MB]`
         )
       );
     } else {
@@ -431,9 +365,9 @@ function deployment(settings, verbose, token, url) {
       process.stdout.clearLine();
       process.stdout.write(
         chalk.gray(
-          `${chalk.white(spin[++n])} ${(uploadedSize / stat.size * 100).toFixed(
-            2
-          )}% uploaded [${(uploadedSize / (1024 * 1024)).toFixed(2)} MB]`
+          `${chalk.white(spin[++n])} ${(uploadedSize / stat.size * 100).toFixed(2)}% uploaded [${(uploadedSize /
+            (1024 * 1024)
+          ).toFixed(2)} MB]`
         )
       );
     }
@@ -445,18 +379,16 @@ function deployment(settings, verbose, token, url) {
     let eventSourceReadyStateWasConnected = 0;
     const es = new EventSource(`${url || settings.url}/deploys/live`, {
       headers: {
-        connection: "keep-alive",
-        "cache-control": "no-cache",
+        connection: 'keep-alive',
+        'cache-control': 'no-cache',
         authorization: `Bearer ${token || settings.token}`
       }
     });
     es.setMaxListeners(0);
 
     es.onerror = () => {
-      if (!(token && settings.token))
-        return reject(new Error("Sign in failed"));
-      if (!eventSourceReadyStateWasConnected)
-        return reject(new Error("Unexpected server communication error"));
+      if (!(token && settings.token)) return reject(new Error('Sign in failed'));
+      if (!eventSourceReadyStateWasConnected) return reject(new Error('Unexpected server communication error'));
     };
 
     es.onmessage = e => {
@@ -467,23 +399,20 @@ function deployment(settings, verbose, token, url) {
 
       if (progressState && progressState.message) {
         es.close();
-        return reject(
-          new Error(`${progressState.deployProgress}: ${progressState.message}`)
-        );
+        return reject(new Error(`${progressState.deployProgress}: ${progressState.message}`));
       }
 
-      if (progressState && progressState.deployProgress === "registrated") {
+      if (progressState && progressState.deployProgress === 'registrated') {
         process.stdout.cursorTo(0);
         process.stdout.clearLine();
         process.stdout.write(
           chalk.gray(
-            `Deployment ${progressState.deployProgress} [${((new Date().getTime() -
-              startDate.getTime()) /
+            `Deployment ${progressState.deployProgress} [${((new Date().getTime() - startDate.getTime()) /
               1000
             ).toFixed(2)}s]`
           )
         );
-        process.stderr.write("\x1B[?25h"); //show terminal cursor
+        process.stderr.write('\x1B[?25h'); //show terminal cursor
         es.close();
         settings.name = progressState.serviceName;
         settings.serviceUrl = progressState.serviceUrl;
@@ -495,11 +424,7 @@ function deployment(settings, verbose, token, url) {
         settings.variables = progressState.serviceVariables;
         settings.stateful = progressState.serviceStateful;
         settings.mappings = progressState.serviceMappings;
-        copyPaste.copy(
-          `https://${progressState.serviceAlias ||
-            progressState.serviceUrl ||
-            ""}`
-        );
+        copyPaste.copy(`https://${progressState.serviceAlias || progressState.serviceUrl || ''}`);
         return resolve(settings);
       }
 
@@ -507,14 +432,12 @@ function deployment(settings, verbose, token, url) {
         progressState.buildImageProgress ||
         progressState.deployProgress ||
         progressState.pushImageProgress ||
-        "processing";
+        'processing';
       if (progressMessage && verbose) {
         console.log(
           chalk.gray(
-            `${progressState.serviceName ||
-              settings.name ||
-              "--------"} ${progressMessage} ${(progressState.log || ""
-            ).replace("\n", "")}`
+            `${progressState.serviceName || settings.name || '--------'} ${progressMessage} ${(progressState.log || ''
+            ).replace('\n', '')}`
           )
         );
       } else {
@@ -525,9 +448,7 @@ function deployment(settings, verbose, token, url) {
         process.stdout.cursorTo(2);
         process.stdout.write(
           chalk.gray(
-            `${capitalizeFirstLetter(
-              progressMessage
-            )} [${((new Date().getTime() - startDate.getTime()) / 1000).toFixed(
+            `${capitalizeFirstLetter(progressMessage)} [${((new Date().getTime() - startDate.getTime()) / 1000).toFixed(
               2
             )}s]`
           )
@@ -537,17 +458,15 @@ function deployment(settings, verbose, token, url) {
 
     es.onopen = () => {
       eventSourceReadyStateWasConnected = es.readyState;
-      fetch(`${url || settings.url}/deploys/${settings.name || ""}`, {
-        method: "POST",
+      fetch(`${url || settings.url}/deploys/${settings.name || ''}`, {
+        method: 'POST',
         body: form,
-        headers: { Authorization: `Bearer ${token || settings.token}` }
+        headers: {Authorization: `Bearer ${token || settings.token}`}
       })
         .then(res => res.json())
         .then(
           data =>
-            data.error || data.message
-              ? Promise.reject(new Error(data.error || data.message))
-              : Promise.resolve(data)
+            data.error || data.message ? Promise.reject(new Error(data.error || data.message)) : Promise.resolve(data)
         )
         .then(data => {
           settings.name = data.serviceName;
@@ -573,14 +492,13 @@ function tarFileFilter(entry, excludes = []) {
   const exclude = !excludes.some(x => minimatch(entry.path, path.resolve(x)));
   return (
     exclude &&
-    entry.basename !== "node_modules" &&
-    entry.basename !== "npm-debug.log" &&
-    entry.basename !== ".git" &&
-    entry.basename !== ".gitignore" &&
-    entry.basename !== ".npmignore" &&
-    entry.basename !== ".DS_Store" &&
-    entry.basename !== "yarn.lock" &&
-    entry.basename !== ".dropstack.json"
+    entry.basename !== 'node_modules' &&
+    entry.basename !== 'npm-debug.log' &&
+    entry.basename !== '.git' &&
+    entry.basename !== '.gitignore' &&
+    entry.basename !== '.npmignore' &&
+    entry.basename !== '.DS_Store' &&
+    entry.basename !== '.dropstack.json'
   );
 }
 
