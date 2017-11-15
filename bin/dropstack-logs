@@ -10,16 +10,18 @@ program
   .arguments('[name]')
   .option('-f, --nofollow', 'Disable live updates.')
   .option('-r, --raw', 'Enable raw JSON outputs.')
+  .option('-b, --logbuffer [lines]', 'Log buffering in lines [100]', 100)
   .action(name =>
     log({
       name: name,
       raw: program.raw,
-      follow: !Boolean(program.nofollow)
+      follow: !Boolean(program.nofollow),
+      logbuffer: parseInt(program.logbuffer)
     })
   )
   .parse(process.argv);
 
-function log({name, follow, raw}) {
+function log({name, follow, raw, logbuffer}) {
   configuration
     .load()
     .then(settings => {
@@ -39,22 +41,23 @@ function log({name, follow, raw}) {
     .then(settings => {
       process.stderr.write('\x1B[?25l'); //hide terminal cursor
       const es = new EventSource(
-        `${settings.url}/deploys/${name || settings.serviceName}/logs?${!follow ? 'follow=' + follow : 'follow=true'}`,
+        `${settings.url}/deploys/${name || settings.serviceName}/logs?${!follow
+          ? 'follow=' + follow
+          : 'follow=true'}&tail=${logbuffer}`,
         {headers: {connection: 'keep-alive', 'cache-control': 'no-cache', authorization: `Bearer ${settings.token}`}}
       );
-      if (!raw) process.stdout.write(chalk.gray(`Connecting...`));
+      if (!raw) process.stdout.write(chalk.gray(`Waiting for logs...`));
 
       es.onopen = () => {
         if (!raw) {
           process.stdout.cursorTo(0);
           process.stdout.clearLine();
-          process.stdout.write(`${chalk.green('Connected!')} ${chalk.gray('Receiving data ...')}\n`);
+          process.stdout.write(`${chalk.green('Connected!')} ${chalk.gray('Receiving logs ...')}\n`);
         }
       };
 
       es.onerror = () => {
         process.stderr.write('\x1B[?25h'); //show terminal cursor
-        console.error('Log-Stream error occurred. Retry...');
       };
       es.onmessage = e => {
         if (raw && e.data && e.data !== '{}') return console.log(e.data);
