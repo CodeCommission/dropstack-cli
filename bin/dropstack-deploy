@@ -181,8 +181,6 @@ function sync({
       stateful
     })
     .then(settings => {
-      if (!settings['support-stateful'] && stateful)
-        return Promise.reject(new Error(`Stateful service deployment is not supported on ${settings.url}`));
       if (settings.message) return Promise.reject(new Error(settings.message));
       return settings;
     })
