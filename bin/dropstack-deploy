@@ -495,8 +495,7 @@ function tarFileFilter(entry, excludes = []) {
     entry.basename !== '.git' &&
     entry.basename !== '.gitignore' &&
     entry.basename !== '.npmignore' &&
-    entry.basename !== '.DS_Store' &&
-    entry.basename !== '.dropstack.json'
+    entry.basename !== '.DS_Store'
   );
 }
 
