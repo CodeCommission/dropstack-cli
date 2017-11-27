@@ -54,44 +54,48 @@ function inspect({name, save}) {
             type: data ? data.serviceType : settings.type,
             stateful: data ? data.serviceStateful : settings.stateful,
             variables: data ? (data.serviceVariables || []).join(',') : settings.variables,
-            serviceUrl: data ? data.serviceUrl : settings.url,
+            serviceUrl: data ? data.serviceUrl : settings.serviceUrl,
+            alias: data ? data.serviceAlias : settings.alias,
+            domain: data ? data.serviceDomain : settings.domain,
             excludes: data ? data.serviceExcludes : settings.excludes || [],
-            mappings: data ? data.serviceMappings : settings.mappings || []
+            mappings: data ? data.serviceMappings : settings.mappings || [],
+            ssl_key: data ? data.ssl_key : settings.ssl_key,
+            ssl_cert: data ? data.ssl_cert : settings.ssl_cert
           })
         )
     )
     .then(data => {
       let message = chalk.green(`Service informations for ${chalk.bold(data.name)}\n\n`);
-      message += chalk.gray(`URL       : ${chalk.white(`https://${data.serviceUrl.replace('https://', '')}`)}\n`);
-      message += chalk.gray(`Type      : ${chalk.white(`${data.type.toUpperCase()}`)}\n`);
-      message += chalk.gray(`Stateful  : ${chalk.white(`${Boolean(data.stateful)}`)}\n`);
-      message += chalk.gray(`Instances : ${chalk.white(`${data.instances}`)}\n`);
-      message += chalk.gray(`Domain    : ${chalk.white(`${data.domain || data.alias || '-'}`)}\n`);
-      message += chalk.gray(`Alias     : ${chalk.white(`${data.alias || '-'}`)}\n`);
-      if (data.createdAt) message += chalk.gray(`Created   : ${chalk.white(`${new Date(data.createdAt)}`)}\n`);
-      if (data.modifiedAt) message += chalk.gray(`Modified  : ${chalk.white(`${new Date(data.modifiedAt)}`)}\n`);
+      message += chalk.gray(`URL          : ${chalk.white(`${data.serviceUrl.replace('https://', '')}`)}\n`);
+      message += chalk.gray(`Type         : ${chalk.white(`${data.type.toUpperCase()}`)}\n`);
+      message += chalk.gray(`Stateful     : ${chalk.white(`${Boolean(data.stateful)}`)}\n`);
+      message += chalk.gray(`Instances    : ${chalk.white(`${data.instances}`)}\n`);
+      message += chalk.gray(`Domain/Alias : ${chalk.white(`${data.domain || data.alias || '-'}`)}\n`);
+      message += chalk.gray(`Custom SSL   : ${chalk.white(`${Boolean(data.ssl_key) && Boolean(data.ssl_cert)}`)}\n`);
+      if (data.createdAt) message += chalk.gray(`Created      : ${chalk.white(`${new Date(data.createdAt)}`)}\n`);
+      if (data.modifiedAt) message += chalk.gray(`Modified     : ${chalk.white(`${new Date(data.modifiedAt)}`)}\n`);
 
-      if (!data.variables) message += chalk.gray(`\nVariables : ${chalk.white('-')}`);
+      if (!data.variables) message += chalk.gray(`\nVariables    : ${chalk.white('-')}`);
       if (data.variables) {
         data.variables.split(',').forEach(variable => {
-          message += chalk.gray(`\nVariables : ${chalk.white(`${variable}`)}`);
+          message += chalk.gray(`\nVariables    : ${chalk.white(`${variable}`)}`);
         });
       }
 
-      if (!data.excludes) message += chalk.gray(`\nExcludes  : ${chalk.white('-')}`);
+      if (!data.excludes) message += chalk.gray(`\nExcludes     : ${chalk.white('-')}`);
       if (data.excludes) {
         message += '\n';
         data.excludes.forEach(exclude => {
-          message += chalk.gray(`\nExcludes  : ${chalk.white(`${exclude}`)}`);
+          message += chalk.gray(`\nExcludes     : ${chalk.white(`${exclude}`)}`);
         });
       }
 
-      if (!data.mappings) message += chalk.gray(`\nMappings  : ${chalk.white('-')}`);
+      if (!data.mappings) message += chalk.gray(`\nMappings     : ${chalk.white('-')}`);
       if (data.mappings) {
         message += '\n';
         Object.keys(data.mappings).forEach(mapping => {
           message += chalk.gray(
-            `\nMapping   : ${chalk.white(mapping)} ${chalk.gray('->')} ${chalk.white(`${data.mappings[mapping]}`)}`
+            `\nMapping      : ${chalk.white(mapping)} ${chalk.gray('->')} ${chalk.white(`${data.mappings[mapping]}`)}`
           );
         });
       }
