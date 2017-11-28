@@ -15,9 +15,7 @@ function logout() {
   configuration
     .load()
     .then(settings => {
-      console.log(
-        `Logout for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`
-      );
+      console.log(`Logout for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`);
       return settings;
     })
     .then(() => configuration.removeGlobalFile())

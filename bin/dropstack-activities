@@ -18,18 +18,11 @@ function activities({raw}) {
     .load()
     .then(settings => {
       if (!raw) {
-        console.log(
-          `Activities for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(
-            settings.url || '-'
-          )}`
-        );
+        console.log(`Activities for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`);
       }
       return settings;
     })
-    .then(
-      settings =>
-        Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed')) : settings
-    )
+    .then(settings => (Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed')) : settings))
     .then(settings => {
       process.stderr.write('\x1B[?25l'); //hide terminal cursor
       const es = new EventSource(`${settings.url}/activities/live`, {
@@ -58,9 +51,9 @@ function activities({raw}) {
           if (!logEntry.timestamp) return;
           console.log(
             chalk.gray(
-              `${chalk.yellow(logEntry.timestamp)} | ${chalk.white(logEntry.id)} | ${chalk.white(
-                logEntry.topic
-              )} | ${chalk.white(logEntry.activity)} | ${chalk.white(logEntry.state)}`
+              `${chalk.yellow(logEntry.timestamp)} | ${chalk.white(logEntry.id)} | ${chalk.white(logEntry.topic)} | ${chalk.white(logEntry.activity)} | ${chalk.white(
+                logEntry.state
+              )}`
             )
           );
         } catch (e) {}
@@ -70,50 +63,32 @@ function activities({raw}) {
       process.stderr.write('\x1B[?25h'); //show terminal cursor
 
       if (err.message === 'canceled') {
-        console.log(chalk.yellow('\nAborted operation.'));
+        console.log(chalk.yellow('\nOperation aborted.'));
         return process.exit(0);
       }
 
       if (err.message === 'Error fetching service') {
-        console.error(
-          chalk.red(
-            `\nService not found. Wrong account? Use ${chalk.bold(
-              'dropstack login <url>'
-            )} to verifiy your credentials.`
-          )
-        );
+        console.error(chalk.red(`\nService not found. Wrong account? Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
         process.exit(1);
       }
 
       if (err.message === 'Sign in failed') {
-        console.error(
-          chalk.red(`\nCredentials not found. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`)
-        );
+        console.error(chalk.red(`\nCredentials not found. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
         process.exit(1);
       }
 
       if (err.message === 'Unauthorized') {
-        console.error(
-          chalk.red(`\nUnauthorized. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`)
-        );
+        console.error(chalk.red(`\nUnauthorized. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
         process.exit(1);
       }
 
       if (err.message === 'Service not found') {
-        console.error(
-          chalk.red(
-            `\nService not found. Wrong account? Use ${chalk.bold(
-              'dropstack login <url>'
-            )} to verifiy your credentials.`
-          )
-        );
+        console.error(chalk.red(`\nService not found. Wrong account? Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
         process.exit(1);
       }
 
       if (err.message === 'Not found') {
-        console.error(
-          chalk.red(`\nServer communication error occurred! Retry later please.\nError: ${chalk.gray(err.message)}`)
-        );
+        console.error(chalk.red(`\nServer communication error occurred! Retry later please.\nError: ${chalk.gray(err.message)}`));
         process.exit(1);
       }
 

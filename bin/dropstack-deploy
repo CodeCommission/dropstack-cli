@@ -58,22 +58,7 @@ deploy(
   })
 );
 
-function deploy({
-  folder,
-  token,
-  variables,
-  instances,
-  alias,
-  https,
-  type,
-  url,
-  environment,
-  aliveEndpoint,
-  verbose,
-  excludes,
-  stateful,
-  compress
-}) {
+function deploy({folder, token, variables, instances, alias, https, type, url, environment, aliveEndpoint, verbose, excludes, stateful, compress}) {
   if (url && !urlRegex({exact: true}).test(url)) {
     console.log(chalk.red('Invalid Dropstack-Server-URL. Must be the format http(s)://host.domain.com.'));
     return process.exit(1);
@@ -88,9 +73,7 @@ function deploy({
   const dirDest = fs.createWriteStream(tarPath);
   const packer = tar
     .Pack({noProprietary: true, fromBase: true})
-    .on('error', err =>
-      console.error(chalk.red(`\nAn unexpected error occurred!\nMessage: ${chalk.gray(err.message)}`))
-    )
+    .on('error', err => console.error(chalk.red(`\nAn unexpected error occurred!\nMessage: ${chalk.gray(err.message)}`)))
     .on('end', () =>
       sync({
         tarPath,
@@ -110,9 +93,9 @@ function deploy({
 
   configuration.load().then(settings => {
     console.log(
-      `Deploying ${chalk.green.underline(settings.alias || settings.name || '-')} for ${chalk.green.underline(
-        settings.username || '-'
-      )} on ${chalk.green.underline(url || settings.url || '-')}`
+      `Deploying ${chalk.green.underline(settings.alias || settings.name || '-')} for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(
+        url || settings.url || '-'
+      )}`
     );
 
     if (verbose) {
@@ -131,9 +114,7 @@ function deploy({
           follow: false,
           filter: x => tarFileFilter(x, settings.excludes)
         })
-        .on('error', err =>
-          console.error(chalk.red(`\nAn unexpected error occurred!\nMessage: ${chalk.gray(err.message)}`))
-        )
+        .on('error', err => console.error(chalk.red(`\nAn unexpected error occurred!\nMessage: ${chalk.gray(err.message)}`)))
         .pipe(packer)
         .pipe(gzip)
         .pipe(dirDest);
@@ -145,29 +126,14 @@ function deploy({
           follow: false,
           filter: x => tarFileFilter(x, settings.excludes)
         })
-        .on('error', err =>
-          console.error(chalk.red(`\nAn unexpected error occurred!\nMessage: ${chalk.gray(err.message)}`))
-        )
+        .on('error', err => console.error(chalk.red(`\nAn unexpected error occurred!\nMessage: ${chalk.gray(err.message)}`)))
         .pipe(packer)
         .pipe(dirDest);
     }
   });
 }
 
-function sync({
-  tarPath,
-  token,
-  variables,
-  instances,
-  alias,
-  type,
-  https,
-  url,
-  aliveEndpoint,
-  verbose,
-  excludes,
-  stateful
-}) {
+function sync({tarPath, token, variables, instances, alias, type, https, url, aliveEndpoint, verbose, excludes, stateful}) {
   configuration
     .load({
       variables,
@@ -187,11 +153,7 @@ function sync({
     .then(settings => deployment(settings, verbose, token, url))
     .then(settings => configuration.save(settings))
     .then(settings => {
-      let message = chalk.green(
-        `Deployment ${chalk.bold(settings.name || '-')} completed - ${settings &&
-          settings.instances &&
-          `${settings.instances} running instance(s)!`}\n\n`
-      );
+      let message = chalk.green(`Deployment ${chalk.bold(settings.name || '-')} completed - ${settings && settings.instances && `${settings.instances} running instance(s)!`}\n\n`);
       message += chalk.grey(`URL   : ${chalk.white(`https://${settings.serviceUrl}`)}\n`);
       if (settings && settings.alias) message += chalk.grey(`Alias : ${chalk.white(settings.alias)}\n`);
       message += `\n${chalk.gray('URL copied to clipboard.\n')}`;
@@ -201,14 +163,12 @@ function sync({
       process.stderr.write('\x1B[?25h'); //show terminal cursor
 
       if (err.message === 'canceled') {
-        console.log(chalk.yellow('\nAborted operation.'));
+        console.log(chalk.yellow('\nOperation aborted.'));
         return process.exit(0);
       }
 
       if (err.message.includes('Error:')) {
-        console.error(
-          chalk.red(`\nServer error occurred! Open an issue and retry later please.\nError: ${chalk.gray(err.message)}`)
-        );
+        console.error(chalk.red(`\nServer error occurred! Open an issue and retry later please.\nError: ${chalk.gray(err.message)}`));
         return process.exit(1);
       }
 
@@ -223,96 +183,56 @@ function sync({
       }
 
       if (err.message === 'Sign in failed') {
-        console.error(
-          chalk.red(`\nCredentials not found. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`)
-        );
+        console.error(chalk.red(`\nCredentials not found. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
         process.exit(1);
       }
 
       if (err.message === 'invalid signature') {
-        console.error(
-          chalk.red(`\nJWT signature invalid. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`)
-        );
+        console.error(chalk.red(`\nJWT signature invalid. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
         process.exit(1);
       }
 
       if (err.message === 'jwt malformed') {
-        console.error(
-          chalk.red(`\nJWT signature invalid. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`)
-        );
+        console.error(chalk.red(`\nJWT signature invalid. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
         process.exit(1);
       }
 
       if (err.message === 'JWT auth invalid') {
-        console.error(
-          chalk.red(`\JWT auth invalid. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`)
-        );
+        console.error(chalk.red(`\JWT auth invalid. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
         process.exit(1);
       }
 
       if (err.message.includes('Deployment error occurred')) {
-        console.error(
-          chalk.red(
-            `\nSorry, deployment error occurred.  Open an issue and retry later please.\nError: ${err.message}.`
-          )
-        );
+        console.error(chalk.red(`\nSorry, deployment error occurred.  Open an issue and retry later please.\nError: ${err.message}.`));
         return process.exit(1);
       }
 
       if (err.message === 'Unexpected server communication error') {
-        console.error(
-          chalk.red(
-            `\nSorry, unexpected server communication error. Open an issue and retry later please.\nError: ${err.message}.`
-          )
-        );
+        console.error(chalk.red(`\nSorry, unexpected server communication error. Open an issue and retry later please.\nError: ${err.message}.`));
         return process.exit(1);
       }
 
       if (err.message === 'Unauthorized') {
-        console.error(
-          chalk.red(`\nUnauthorized. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`)
-        );
+        console.error(chalk.red(`\nUnauthorized. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
         process.exit(1);
       }
 
       if (err.message === 'Service already assigned') {
-        console.error(
-          chalk.red(
-            `\nService already assigned. Wrong account? Use ${chalk.bold(
-              'dropstack login <url>'
-            )} to verifiy your credentials.`
-          )
-        );
+        console.error(chalk.red(`\nService already assigned. Wrong account? Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
         process.exit(1);
       }
 
       if (err.message === 'error: Service already assigned') {
-        console.error(
-          chalk.red(
-            `\nService already assigned. Wrong account? Use ${chalk.bold(
-              'dropstack login <url>'
-            )} to verifiy your credentials.`
-          )
-        );
+        console.error(chalk.red(`\nService already assigned. Wrong account? Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
         process.exit(1);
       }
 
       if (err.message === 'Not found') {
-        console.error(
-          chalk.red(
-            `\nServer communication error occurred! Open an issue and retry later please.\nError: ${chalk.gray(
-              err.message
-            )}`
-          )
-        );
+        console.error(chalk.red(`\nServer communication error occurred! Open an issue and retry later please.\nError: ${chalk.gray(err.message)}`));
         process.exit(1);
       }
 
-      console.error(
-        chalk.red(
-          `\nAn unexpected error occurred! Open an issue and retry later please.\nError: ${chalk.gray(err.message)}`
-        )
-      );
+      console.error(chalk.red(`\nAn unexpected error occurred! Open an issue and retry later please.\nError: ${chalk.gray(err.message)}`));
       process.exit(1);
     });
 }
@@ -350,24 +270,12 @@ function deployment(settings, verbose, token, url) {
   tarStream.on('data', buffer => {
     uploadedSize += buffer.length;
     if (verbose) {
-      console.log(
-        chalk.gray(
-          `${settings.name || '--------'} ${(uploadedSize / stat.size * 100).toFixed(2)}% uploaded [${(uploadedSize /
-            (1024 * 1024)
-          ).toFixed(2)} MB]`
-        )
-      );
+      console.log(chalk.gray(`${settings.name || '--------'} ${(uploadedSize / stat.size * 100).toFixed(2)}% uploaded [${(uploadedSize / (1024 * 1024)).toFixed(2)} MB]`));
     } else {
       if (n >= 8) n = 1;
       process.stdout.cursorTo(0);
       process.stdout.clearLine();
-      process.stdout.write(
-        chalk.gray(
-          `${chalk.white(spin[++n])} ${(uploadedSize / stat.size * 100).toFixed(2)}% uploaded [${(uploadedSize /
-            (1024 * 1024)
-          ).toFixed(2)} MB]`
-        )
-      );
+      process.stdout.write(chalk.gray(`${chalk.white(spin[++n])} ${(uploadedSize / stat.size * 100).toFixed(2)}% uploaded [${(uploadedSize / (1024 * 1024)).toFixed(2)} MB]`));
     }
   });
   form.append(pathObj.name, tarStream);
@@ -403,13 +311,7 @@ function deployment(settings, verbose, token, url) {
       if (progressState && progressState.deployProgress === 'registrated') {
         process.stdout.cursorTo(0);
         process.stdout.clearLine();
-        process.stdout.write(
-          chalk.gray(
-            `Deployment ${progressState.deployProgress} [${((new Date().getTime() - startDate.getTime()) /
-              1000
-            ).toFixed(2)}s]`
-          )
-        );
+        process.stdout.write(chalk.gray(`Deployment ${progressState.deployProgress} [${((new Date().getTime() - startDate.getTime()) / 1000).toFixed(2)}s]`));
         process.stderr.write('\x1B[?25h'); //show terminal cursor
         es.close();
         settings.name = progressState.serviceName;
@@ -426,31 +328,16 @@ function deployment(settings, verbose, token, url) {
         return resolve(settings);
       }
 
-      const progressMessage =
-        progressState.buildImageProgress ||
-        progressState.deployProgress ||
-        progressState.pushImageProgress ||
-        'processing';
+      const progressMessage = progressState.buildImageProgress || progressState.deployProgress || progressState.pushImageProgress || 'processing';
       if (progressMessage && verbose) {
-        console.log(
-          chalk.gray(
-            `${progressState.serviceName || settings.name || '--------'} ${progressMessage} ${(progressState.log || ''
-            ).replace('\n', '')}`
-          )
-        );
+        console.log(chalk.gray(`${progressState.serviceName || settings.name || '--------'} ${progressMessage} ${(progressState.log || '').replace('\n', '')}`));
       } else {
         if (n >= 8) n = 1;
         process.stdout.cursorTo(0);
         process.stdout.clearLine();
         process.stdout.write(`${spin[++n]}`);
         process.stdout.cursorTo(2);
-        process.stdout.write(
-          chalk.gray(
-            `${capitalizeFirstLetter(progressMessage)} [${((new Date().getTime() - startDate.getTime()) / 1000).toFixed(
-              2
-            )}s]`
-          )
-        );
+        process.stdout.write(chalk.gray(`${capitalizeFirstLetter(progressMessage)} [${((new Date().getTime() - startDate.getTime()) / 1000).toFixed(2)}s]`));
       }
     };
 
@@ -462,10 +349,7 @@ function deployment(settings, verbose, token, url) {
         headers: {Authorization: `Bearer ${token || settings.token}`}
       })
         .then(res => res.json())
-        .then(
-          data =>
-            data.error || data.message ? Promise.reject(new Error(data.error || data.message)) : Promise.resolve(data)
-        )
+        .then(data => (data.error || data.message ? Promise.reject(new Error(data.error || data.message)) : Promise.resolve(data)))
         .then(data => {
           settings.name = data.serviceName;
           settings.serviceUrl = data.serviceUrl;

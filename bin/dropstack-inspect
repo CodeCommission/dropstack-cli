@@ -20,25 +20,17 @@ function inspect({name, save}) {
     .load()
     .then(settings => {
       console.log(
-        `Inspect ${chalk.green.underline(name || settings.name || '-')} for ${chalk.green.underline(
-          settings.username || '-'
-        )} on ${chalk.green.underline(settings.url || '-')}`
+        `Inspect ${chalk.green.underline(name || settings.name || '-')} for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`
       );
       return settings;
     })
-    .then(
-      settings =>
-        Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed')) : settings
-    )
+    .then(settings => (Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed')) : settings))
     .then(settings => (Boolean(name || settings.name) ? settings : Promise.reject(`Deployment name missing`)))
     .then(settings =>
       fetch(`${settings.url}/deploys/${name || settings.name}`, {
         headers: {Authorization: `Bearer ${settings.token}`, 'Content-Type': 'application/json'}
       })
-        .then(
-          response =>
-            response.status >= 400 ? Promise.reject(new Error(`Response error: ${response.statusText}`)) : response
-        )
+        .then(response => (response.status >= 400 ? Promise.reject(new Error(`Response error: ${response.statusText}`)) : response))
         .then(response => response.json())
         .catch(_ => null)
         .then(data => {
@@ -94,9 +86,7 @@ function inspect({name, save}) {
       if (data.mappings) {
         message += '\n';
         Object.keys(data.mappings).forEach(mapping => {
-          message += chalk.gray(
-            `\nMapping      : ${chalk.white(mapping)} ${chalk.gray('->')} ${chalk.white(`${data.mappings[mapping]}`)}`
-          );
+          message += chalk.gray(`\nMapping      : ${chalk.white(mapping)} ${chalk.gray('->')} ${chalk.white(`${data.mappings[mapping]}`)}`);
         });
       }
 
@@ -122,7 +112,7 @@ function inspect({name, save}) {
     .catch(err => {
       console.log(err);
       if (err.message === 'canceled') {
-        console.log(chalk.yellow('\nAborted operation.'));
+        console.log(chalk.yellow('\nOperation aborted.'));
         return process.exit(0);
       }
 
@@ -132,34 +122,22 @@ function inspect({name, save}) {
       }
 
       if (err.message === 'Sign in failed') {
-        console.error(
-          chalk.red(`\nCredentials not found. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`)
-        );
+        console.error(chalk.red(`\nCredentials not found. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
         process.exit(1);
       }
 
       if (err.message === 'Unauthorized') {
-        console.error(
-          chalk.red(`\nUnauthorized. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`)
-        );
+        console.error(chalk.red(`\nUnauthorized. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
         process.exit(1);
       }
 
       if (err.message === 'Service not found') {
-        console.error(
-          chalk.red(
-            `\nService not found. Wrong account? Use ${chalk.bold(
-              'dropstack login <url>'
-            )} to verifiy your credentials.`
-          )
-        );
+        console.error(chalk.red(`\nService not found. Wrong account? Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
         process.exit(1);
       }
 
       if (err.message === 'Not found') {
-        console.error(
-          chalk.red(`\nServer communication error occurred! Retry later please.\nError: ${chalk.gray(err.message)}`)
-        );
+        console.error(chalk.red(`\nServer communication error occurred! Retry later please.\nError: ${chalk.gray(err.message)}`));
         process.exit(1);
       }
 

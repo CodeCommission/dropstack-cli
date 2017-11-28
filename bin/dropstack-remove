@@ -21,16 +21,13 @@ function remove({name, force}) {
     .load()
     .then(settings => {
       console.log(
-        `Remove deployment ${chalk.red.underline(name || settings.name || '-')} for ${chalk.green.underline(
-          settings.username || '-'
-        )} on ${chalk.green.underline(settings.url || '-')}`
+        `Remove deployment ${chalk.red.underline(name || settings.name || '-')} for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(
+          settings.url || '-'
+        )}`
       );
       return settings;
     })
-    .then(
-      settings =>
-        Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed')) : settings
-    )
+    .then(settings => (Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed')) : settings))
     .then(settings => {
       return new Promise((resolve, reject) => {
         const spin = ' ⢹⢺⢼⣸⣇⡧⡗⡏'.split('');
@@ -61,13 +58,7 @@ function remove({name, force}) {
           if (progressState && progressState.deployProgress === 'deregistrated') {
             process.stdout.cursorTo(0);
             process.stdout.clearLine();
-            console.log(
-              chalk.gray(
-                `Deployment ${progressState.deployProgress} [${((new Date().getTime() - startDate.getTime()) /
-                  1000
-                ).toFixed(2)}s]`
-              )
-            );
+            console.log(chalk.gray(`Deployment ${progressState.deployProgress} [${((new Date().getTime() - startDate.getTime()) / 1000).toFixed(2)}s]`));
             process.stderr.write('\x1B[?25h'); //show terminal cursor
             es.close();
             return resolve(progressState);
@@ -75,14 +66,7 @@ function remove({name, force}) {
           if (progressState.deployProgress) {
             process.stdout.cursorTo(2);
             process.stdout.clearLine();
-            process.stdout.write(
-              chalk.gray(
-                `${capitalizeFirstLetter(progressState.deployProgress)} [${((new Date().getTime() -
-                  startDate.getTime()) /
-                  1000
-                ).toFixed(2)}s]`
-              )
-            );
+            process.stdout.write(chalk.gray(`${capitalizeFirstLetter(progressState.deployProgress)} [${((new Date().getTime() - startDate.getTime()) / 1000).toFixed(2)}s]`));
           }
         };
 
@@ -114,50 +98,32 @@ function remove({name, force}) {
       process.stderr.write('\x1B[?25h'); //show terminal cursor
 
       if (err.message === 'canceled') {
-        console.log(chalk.yellow('\nAborted operation.'));
+        console.log(chalk.yellow('\nOperation aborted.'));
         return process.exit(0);
       }
 
       if (err.message === 'Sign in failed') {
-        console.error(
-          chalk.red(`\nCredentials not found. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`)
-        );
+        console.error(chalk.red(`\nCredentials not found. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
         process.exit(1);
       }
 
       if (err.message === 'Unauthorized') {
-        console.error(
-          chalk.red(`\nUnauthorized. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`)
-        );
+        console.error(chalk.red(`\nUnauthorized. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
         process.exit(1);
       }
 
       if (err.message === 'Service not found') {
-        console.error(
-          chalk.red(
-            `\nService not found. Wrong account? Use ${chalk.bold(
-              'dropstack login <url>'
-            )} to verifiy your credentials.`
-          )
-        );
+        console.error(chalk.red(`\nService not found. Wrong account? Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
         process.exit(1);
       }
 
       if (err.message === `error: ${name} missing`) {
-        console.error(
-          chalk.red(
-            `\nService not found. Already removed or wrong account? Use ${chalk.bold(
-              'dropstack login <url>'
-            )} to verifiy your credentials.`
-          )
-        );
+        console.error(chalk.red(`\nService not found. Already removed or wrong account? Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
         process.exit(1);
       }
 
       if (err.message === 'Not found') {
-        console.error(
-          chalk.red(`\nServer communication error occurred! Retry later please.\nError: ${chalk.gray(err.message)}`)
-        );
+        console.error(chalk.red(`\nServer communication error occurred! Retry later please.\nError: ${chalk.gray(err.message)}`));
         process.exit(1);
       }
 

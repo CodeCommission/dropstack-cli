@@ -22,27 +22,16 @@ function account({reset, token}) {
   configuration
     .load()
     .then(settings => {
-      console.log(
-        chalk.green(
-          `Account information for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(
-            settings.url || '-'
-          )}`
-        )
-      );
+      console.log(chalk.green(`Account information for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`));
       if (!(settings.token && settings.username)) return Promise.reject(new Error('Sign in failed'));
       return settings;
     })
-    .then(
-      settings => (reset ? credentials.reset(settings).then(data => Promise.reject(data)) : Promise.resolve(settings))
-    )
+    .then(settings => (reset ? credentials.reset(settings).then(data => Promise.reject(data)) : Promise.resolve(settings)))
     .then(settings => {
       return fetch(`${settings.url}/auth/account`, {
         headers: {Authorization: `Bearer ${settings.token}`, timeout: 10}
       })
-        .then(
-          response =>
-            response.status >= 400 ? Promise.reject(new Error(`Response error: ${response.statusText}`)) : response
-        )
+        .then(response => (response.status >= 400 ? Promise.reject(new Error(`Response error: ${response.statusText}`)) : response))
         .then(response =>
           response.json().then(data =>
             Object.assign({}, data, {
@@ -58,12 +47,7 @@ function account({reset, token}) {
       message += `${chalk.gray(`${pad(15, 'Server Version', ' ')}: ${chalk.white(data.version)}`)}\n`;
       message += `${chalk.gray(`${pad(15, 'Client Version', ' ')}: ${chalk.white(appPackage.version)}`)}\n`;
       message += `${chalk.gray(`${pad(15, 'Server URL', ' ')}: ${chalk.white(data.url)}`)}`;
-      if (data.signedUpAt)
-        message += `\n${chalk.gray(`${pad(15, 'Signed up', ' ')}: ${chalk.white(new Date(data.signedUpAt))}`)}`;
-      if (data.metadata && data.metadata.plan)
-        message += `\n${chalk.gray(
-          `${pad(15, 'Plan (beta)', ' ')}: ${chalk.white((data.metadata && data.metadata.plan) || '-')}`
-        )}`;
+      if (data.signedUpAt) message += `\n${chalk.gray(`${pad(15, 'Signed up', ' ')}: ${chalk.white(new Date(data.signedUpAt))}`)}`;
       if (token) message += `\n${chalk.gray(`${pad(15, 'JSON Web Token', ' ')}: ${chalk.white(data.token)}`)}`;
       console.log(boxen(message, {padding: 1, borderColor: 'gray', margin: 1}));
 
@@ -76,28 +60,22 @@ function account({reset, token}) {
       }
 
       if (err.message === 'canceled') {
-        console.log(chalk.yellow('\nAborted operation.'));
+        console.log(chalk.yellow('\nOperation aborted.'));
         return process.exit(0);
       }
 
       if (err.message === 'Sign in failed') {
-        console.error(
-          chalk.red(`\nCredentials not found. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`)
-        );
+        console.error(chalk.red(`\nCredentials not found. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
         process.exit(1);
       }
 
       if (err.message === 'Unauthorized') {
-        console.error(
-          chalk.red(`\nUnauthorized. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`)
-        );
+        console.error(chalk.red(`\nUnauthorized. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
         process.exit(1);
       }
 
       if (err.message === 'Not found') {
-        console.error(
-          chalk.red(`\nServer communication error occurred! Retry later please.\nError: ${chalk.gray(err.message)}`)
-        );
+        console.error(chalk.red(`\nServer communication error occurred! Retry later please.\nError: ${chalk.gray(err.message)}`));
         process.exit(1);
       }
 

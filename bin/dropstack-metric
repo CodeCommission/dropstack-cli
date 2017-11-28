@@ -29,27 +29,21 @@ function metrics({name, all}) {
       console.log(`Metrics for ${chalk.green.underline(settings.username)}`);
       return settings;
     })
-    .then(
-      settings =>
-        Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed')) : settings
-    )
+    .then(settings => (Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed')) : settings))
     .then(settings =>
       fetch(`${settings.url}/metrics`, {headers: {Authorization: `Bearer ${settings.token}`}})
-        .then(
-          response =>
-            response.status >= 400 ? Promise.reject(new Error(`Response error: ${response.statusText}`)) : response
-        )
+        .then(response => (response.status >= 400 ? Promise.reject(new Error(`Response error: ${response.statusText}`)) : response))
         .then(response => response.json())
     )
     .then(data => (Boolean(data.message) ? Promise.reject(new Error(data.message)) : data))
     .then(data => {
       console.log(
         chalk.green(
-          `Summary  - ${pad(16, `Requests: ${methodCounts(data.methods)}`, ' ')} ${pad(
+          `Summary  - ${pad(16, `Requests: ${methodCounts(data.methods)}`, ' ')} ${pad(20, `Incoming: ${(data.inBytes / (1024 * 1024)).toFixed(2) || 0} MB`, ' ')} ${pad(
             20,
-            `Incoming: ${(data.inBytes / (1024 * 1024)).toFixed(2) || 0} MB`,
+            `Outgoing: ${(data.outBytes / (1024 * 1024)).toFixed(2) || 0} MB`,
             ' '
-          )} ${pad(20, `Outgoing: ${(data.outBytes / (1024 * 1024)).toFixed(2) || 0} MB`, ' ')}\n`
+          )}\n`
         )
       );
 
@@ -60,13 +54,11 @@ function metrics({name, all}) {
         .forEach(x =>
           console.log(
             chalk.gray(
-              `${x.active ? chalk.green('active  ') : chalk.red('inactive')} - ${x.active
-                ? chalk.green(x.name)
-                : chalk.gray(x.name)} - ${pad(16, `Requests: ${methodCounts(x.methods)}`, ' ')} ${pad(
-                20,
-                `Incoming: ${(x.inBytes / (1024 * 1024)).toFixed(2) || 0} MB`,
+              `${x.active ? chalk.green('active  ') : chalk.red('inactive')} - ${x.active ? chalk.green(x.name) : chalk.gray(x.name)} - ${pad(
+                16,
+                `Requests: ${methodCounts(x.methods)}`,
                 ' '
-              )} ${pad(20, `Outgoing: ${(x.outBytes / (1024 * 1024)).toFixed(2) || 0} MB`, ' ')}`
+              )} ${pad(20, `Incoming: ${(x.inBytes / (1024 * 1024)).toFixed(2) || 0} MB`, ' ')} ${pad(20, `Outgoing: ${(x.outBytes / (1024 * 1024)).toFixed(2) || 0} MB`, ' ')}`
             )
           )
         );
@@ -75,14 +67,12 @@ function metrics({name, all}) {
       process.stderr.write('\x1B[?25h'); //show terminal cursor
 
       if (err.message === 'canceled') {
-        console.log(chalk.yellow('\nAborted operation.'));
+        console.log(chalk.yellow('\nOperation aborted.'));
         return process.exit(0);
       }
 
       if (err.message === 'Sign in failed') {
-        console.error(
-          chalk.red(`\nCredentials not found. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`)
-        );
+        console.error(chalk.red(`\nCredentials not found. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
         process.exit(1);
       }
 
@@ -105,10 +95,7 @@ function metricsLive({name, all, nofollow}) {
       console.log(`Live metrics for ${chalk.green.underline(settings.username)}`);
       return settings;
     })
-    .then(
-      settings =>
-        Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed')) : settings
-    )
+    .then(settings => (Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed')) : settings))
     .then(settings => {
       process.stderr.write('\x1B[?25l'); //hide terminal cursor
       const es = new EventSource(`${settings.url}/metrics/live`, {
@@ -133,11 +120,11 @@ function metricsLive({name, all, nofollow}) {
         process.stdout.clearLine();
         console.log(
           chalk.green(
-            `Summary  - ${pad(16, `Requests: ${methodCounts(data.methods)}`, ' ')} ${pad(
+            `Summary  - ${pad(16, `Requests: ${methodCounts(data.methods)}`, ' ')} ${pad(20, `Incoming: ${(data.inBytes / (1024 * 1024)).toFixed(2) || 0} MB`, ' ')} ${pad(
               20,
-              `Incoming: ${(data.inBytes / (1024 * 1024)).toFixed(2) || 0} MB`,
+              `Outgoing: ${(data.outBytes / (1024 * 1024)).toFixed(2) || 0} MB`,
               ' '
-            )} ${pad(20, `Outgoing: ${(data.outBytes / (1024 * 1024)).toFixed(2) || 0} MB`, ' ')}\n`
+            )}\n`
           )
         );
 
@@ -151,13 +138,11 @@ function metricsLive({name, all, nofollow}) {
           process.stdout.clearLine();
           console.log(
             chalk.gray(
-              `${x.active ? chalk.green('active  ') : chalk.red('inactive')} - ${x.active
-                ? chalk.green(x.name)
-                : chalk.gray(x.name)} - ${pad(16, `Requests: ${methodCounts(x.methods)}`, ' ')} ${pad(
-                20,
-                `Incoming: ${(x.inBytes / (1024 * 1024)).toFixed(2) || 0} MB`,
+              `${x.active ? chalk.green('active  ') : chalk.red('inactive')} - ${x.active ? chalk.green(x.name) : chalk.gray(x.name)} - ${pad(
+                16,
+                `Requests: ${methodCounts(x.methods)}`,
                 ' '
-              )} ${pad(20, `Outgoing: ${(x.outBytes / (1024 * 1024)).toFixed(2) || 0} MB`, ' ')}`
+              )} ${pad(20, `Incoming: ${(x.inBytes / (1024 * 1024)).toFixed(2) || 0} MB`, ' ')} ${pad(20, `Outgoing: ${(x.outBytes / (1024 * 1024)).toFixed(2) || 0} MB`, ' ')}`
             )
           );
         });
@@ -174,32 +159,22 @@ function metricsLive({name, all, nofollow}) {
       process.stderr.write('\x1B[?25h'); //show terminal cursor
 
       if (err.message === 'canceled') {
-        console.log(chalk.yellow('\nAborted operation.'));
+        console.log(chalk.yellow('\nOperation aborted.'));
         return process.exit(0);
       }
 
       if (err.message === 'Sign in failed') {
-        console.error(
-          chalk.red(`\nCredentials not found. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`)
-        );
+        console.error(chalk.red(`\nCredentials not found. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
         process.exit(1);
       }
 
       if (err.message === 'Unauthorized') {
-        console.error(
-          chalk.red(`\nUnauthorized. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`)
-        );
+        console.error(chalk.red(`\nUnauthorized. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
         process.exit(1);
       }
 
       if (err.message === 'Service not found') {
-        console.error(
-          chalk.red(
-            `\nService not found. Wrong account? Use ${chalk.bold(
-              'dropstack login <url>'
-            )} to verifiy your credentials.`
-          )
-        );
+        console.error(chalk.red(`\nService not found. Wrong account? Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
         process.exit(1);
       }
 
@@ -209,9 +184,7 @@ function metricsLive({name, all, nofollow}) {
       }
 
       if (err.message === 'Not found') {
-        console.error(
-          chalk.red(`\nServer communication error occurred! Retry later please.\nError: ${chalk.gray(err.message)}`)
-        );
+        console.error(chalk.red(`\nServer communication error occurred! Retry later please.\nError: ${chalk.gray(err.message)}`));
         process.exit(1);
       }
 

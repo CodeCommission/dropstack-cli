@@ -18,9 +18,7 @@ if (!program.args.length) scale(program.opts());
 
 function scale({name, instances}) {
   if (!instances) {
-    console.error(
-      chalk.red(`Invalid number of instances.\nEnter ${chalk.bold('dropstack help scale')} to read more introductions.`)
-    );
+    console.error(chalk.red(`Invalid number of instances.\nEnter ${chalk.bold('dropstack help scale')} to read more introductions.`));
     process.exit(1);
   }
 
@@ -28,16 +26,11 @@ function scale({name, instances}) {
     .load()
     .then(settings => {
       console.log(
-        `Scaling ${chalk.green.underline(name || settings.name || '-')} for ${chalk.green.underline(
-          settings.username || '-'
-        )} on ${chalk.green.underline(settings.url || '-')}`
+        `Scaling ${chalk.green.underline(name || settings.name || '-')} for ${chalk.green.underline(settings.username || '-')} on ${chalk.green.underline(settings.url || '-')}`
       );
       return settings;
     })
-    .then(
-      settings =>
-        Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed')) : settings
-    )
+    .then(settings => (Boolean(!(settings.token && settings.username)) ? Promise.reject(new Error('Sign in failed')) : settings))
     .then(settings => (Boolean(name || settings.name) ? settings : Promise.reject(`Enter a deployment name`)))
     .then(settings =>
       fetch(`${settings.url}/deploys/${name || settings.name}/scale`, {
@@ -45,25 +38,16 @@ function scale({name, instances}) {
         body: JSON.stringify({serviceInstances: instances || ''}),
         headers: {Authorization: `Bearer ${settings.token}`, 'Content-Type': 'application/json'}
       })
-        .then(
-          response =>
-            response.status >= 400 ? Promise.reject(new Error(`Response error: ${response.statusText}`)) : response
-        )
+        .then(response => (response.status >= 400 ? Promise.reject(new Error(`Response error: ${response.statusText}`)) : response))
         .then(response => response.json())
         .then(data => Object.assign(settings, data))
         .then(data => (Boolean(data.message) ? Promise.reject(new Error(data.message)) : data))
-        .then(data =>
-          configuration
-            .load()
-            .then(settings => configuration.save(Object.assign(settings, {instances: data.serviceInstances})))
-        )
+        .then(data => configuration.load().then(settings => configuration.save(Object.assign(settings, {instances: data.serviceInstances}))))
     )
     .then(data => {
       copyPaste.copy(`https://${data.domain || data.alias || data.serviceUrl || ''}`);
 
-      let message = chalk.green(
-        `Scale for ${chalk.bold(data.name || data.name)} updated - ${data.instances} running instance(s)!\n\n`
-      );
+      let message = chalk.green(`Scale for ${chalk.bold(data.name || data.name)} updated - ${data.instances} running instance(s)!\n\n`);
       message += `• URL: ${chalk.bold(`https://${data.serviceUrl}`)}\n`;
       if (data.domain || data.alias) message += `• Domain: ${chalk.bold('http://' + (data.domain || data.alias))}\n`;
       message += `\n${chalk.gray('URL copied to clipboard.')}\n`;
@@ -73,39 +57,27 @@ function scale({name, instances}) {
     })
     .catch(err => {
       if (err.message === 'canceled') {
-        console.log(chalk.yellow('\nAborted operation.'));
+        console.log(chalk.yellow('\nOperation aborted.'));
         return process.exit(0);
       }
 
       if (err.message === 'Sign in failed') {
-        console.error(
-          chalk.red(`\nCredentials not found. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`)
-        );
+        console.error(chalk.red(`\nCredentials not found. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
         process.exit(1);
       }
 
       if (err.message === 'Unauthorized') {
-        console.error(
-          chalk.red(`\nUnauthorized. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`)
-        );
+        console.error(chalk.red(`\nUnauthorized. Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
         process.exit(1);
       }
 
       if (err.message === 'Service not found') {
-        console.error(
-          chalk.red(
-            `\nService not found. Wrong account? Use ${chalk.bold(
-              'dropstack login <url>'
-            )} to verifiy your credentials.`
-          )
-        );
+        console.error(chalk.red(`\nService not found. Wrong account? Use ${chalk.bold('dropstack login <url>')} to verifiy your credentials.`));
         process.exit(1);
       }
 
       if (err.message === 'Not found') {
-        console.error(
-          chalk.red(`\nServer communication error occurred! Retry later please.\nError: ${chalk.gray(err.message)}`)
-        );
+        console.error(chalk.red(`\nServer communication error occurred! Retry later please.\nError: ${chalk.gray(err.message)}`));
         process.exit(1);
       }
 

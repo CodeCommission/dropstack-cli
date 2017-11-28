@@ -12,13 +12,12 @@ const appPackage = require('../package.json');
 
 program
   .arguments('<url>')
-  .option('-t, --token', 'Show JSON Web Token.')
-  .action(url => login(Object.assign({url: url, token: program.token})))
+  .action(url => signup(Object.assign({url: url})))
   .parse(process.argv);
 
-if (!program.args.length) login(program.opts());
+if (!program.args.length) signup(program.opts());
 
-function login({url, token}) {
+function signup({url, token}) {
   if (url && !urlRegex({exact: true}).test(url)) {
     console.log(chalk.red('Invalid Dropstack-Server-URL. Must be the format https://host.domain.com.'));
     return process.exit(1);
@@ -28,15 +27,21 @@ function login({url, token}) {
     .removeGlobalFile()
     .then(() => configuration.load({url}))
     .then(settings => {
-      console.log(chalk.green(`Enter your email and password to login into ${chalk.bold(settings.url || '-')}\n`));
+      console.log(chalk.green(`Enter your email, password and password validation to sign up into ${chalk.bold(settings.url || '-')}\n`));
       return settings;
     })
     .then(settings => credentials.inputEmail(settings.username).then(data => Object.assign(settings, data)))
     .then(settings => credentials.inputPassword(settings.password).then(data => Object.assign(settings, data)))
-    .then(settings => credentials.login(settings).then(data => Object.assign(settings, data)))
+    .then(settings => credentials.inputPasswordVerify(settings.verify).then(data => Object.assign(settings, data)))
     .then(settings => {
-      if (!settings.token) return Promise.reject(new Error('Credentials not found'));
+      if (settings.password !== settings.verify) return Promise.reject(new Error('Password validation failed'));
+      return settings;
+    })
+    .then(settings => credentials.signup(settings).then(data => Object.assign(settings, data)))
+    .then(settings => {
+      if (settings.error === 'Document update conflict') return Promise.reject(new Error('The user already exists'));
       if (settings.error || settings.message) return Promise.reject(new Error(settings.message));
+      if (!settings.token) return Promise.reject(new Error('Sign up failed'));
       return settings;
     })
     .then(settings => configuration.save(settings))
@@ -64,16 +69,18 @@ function login({url, token}) {
         return process.exit(0);
       }
 
-      if (err.message === 'Credentials not found') {
-        console.error(chalk.red(`\nCredentials not found.`), chalk.yellow(`\nEnter ${chalk.bold('dropstack signup')} to create an account for free.`));
-        process.exit(1);
+      if (err.message === 'The user already exists') {
+        console.error(chalk.red(`\nSign up failed. This account already exists.`));
+        return process.exit(1);
       }
 
-      if (err.message === 'Unauthorized') {
-        console.error(
-          chalk.red(`Unauthorized.`),
-          chalk.yellow(`\nTry again to verifiy your credentials or just enter ${chalk.bold('dropstack signup')} to create an account for free.`)
-        );
+      if (err.message === 'Password validation failed') {
+        console.error(chalk.red(`Password validation failed. Try again please.`));
+        return process.exit(1);
+      }
+
+      if (err.message === 'Sign up failed') {
+        console.error(chalk.red(`\nSign up failed. Try again later please.`));
         process.exit(1);
       }
 
